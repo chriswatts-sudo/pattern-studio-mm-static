@@ -2428,132 +2428,161 @@ async function _detectSourceFps(){
   }
   return 30;
 }
-async function _exportVideoMp4_WebCodecs(){
-  const nativeW = videoEl.videoWidth, nativeH = videoEl.videoHeight;
-  // Resize canvas
-  const prevPreset = qs('sizePreset').value;
-  const prevCW = qs('customW').value, prevCH = qs('customH').value;
-  qs('sizePreset').value = 'custom';
-  qs('customW').value = nativeW; qs('customH').value = nativeH;
-  applyOutputSize();
-  videoEl.pause();
-  const hadLoop = videoEl.loop; videoEl.loop = false;
-  // Detect fps
-  videoEl.currentTime = 0;
-  await new Promise(res => { const s = () => { videoEl.removeEventListener('seeked', s); res(); }; videoEl.addEventListener('seeked', s); });
-  const fps = await _detectSourceFps();
-  videoEl.pause();
-  videoEl.currentTime = 0;
-  await new Promise(res => { const s = () => { videoEl.removeEventListener('seeked', s); res(); }; videoEl.addEventListener('seeked', s); });
-  const duration = videoEl.duration;
-  const totalFrames = Math.max(1, Math.floor(duration * fps));
-  // Load mp4-muxer from CDN
-  const muxModulePromise = import('https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.2/+esm');
-  let mux; try { mux = await muxModulePromise; } catch(e){ throw new Error('Could not load mp4-muxer module: ' + e); }
-  const { Muxer, ArrayBufferTarget } = mux;
-  // Pick a supported codec string for the resolution
-  const codecCandidates = ['avc1.640033','avc1.640032','avc1.640028','avc1.4D0028','avc1.42E028','avc1.42E01E'];
-  let codec = null;
-  for(const c of codecCandidates){
-    try {
-      const r = await VideoEncoder.isConfigSupported({ codec: c, width: nativeW, height: nativeH, bitrate: _bitrateFor(nativeW, nativeH), framerate: fps });
-      if(r && r.supported){ codec = c; break; }
-    } catch(_){}
-  }
-  if(!codec) throw new Error('No supported H.264 config for this resolution');
-  const muxer = new Muxer({
-    target: new ArrayBufferTarget(),
-    video: { codec: 'avc', width: nativeW, height: nativeH, frameRate: fps },
-    fastStart: 'in-memory',
+// Bounded seek: resolves on 'seeked' OR after timeoutMs, whichever first
+function _safeSeek(t, timeoutMs){
+  return new Promise(res => {
+    let done = false;
+    const s = () => { if(done) return; done = true; videoEl.removeEventListener('seeked', s); res(); };
+    videoEl.addEventListener('seeked', s);
+    try { videoEl.currentTime = t; } catch(_){ done = true; videoEl.removeEventListener('seeked', s); return res(); }
+    setTimeout(() => { if(!done){ done = true; videoEl.removeEventListener('seeked', s); res(); } }, timeoutMs || 1500);
   });
-  const encoder = new VideoEncoder({
-    output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-    error: e => { console.error('VideoEncoder error:', e); throw e; },
+}
+function _safeRvfc(timeoutMs){
+  return new Promise(res => {
+    let done = false;
+    const fin = () => { if(done) return; done = true; res(); };
+    if(typeof videoEl.requestVideoFrameCallback === 'function') videoEl.requestVideoFrameCallback(fin);
+    setTimeout(fin, timeoutMs || 250);
   });
-  encoder.configure({
-    codec, width: nativeW, height: nativeH,
-    bitrate: _bitrateFor(nativeW, nativeH),
-    framerate: fps,
-    latencyMode: 'quality',
-  });
-  if(!videoFrameCanvas){
-    videoFrameCanvas = document.createElement('canvas');
-    videoFrameCtx = videoFrameCanvas.getContext('2d', { willReadFrequently: true });
-  }
+}
+function _setStatus(text){
   qs('recStatus').style.display = 'block';
-  qs('recStatus').firstChild && (qs('recStatus').firstChild.textContent = `Encoding ${nativeW}×${nativeH} @ ${fps}fps · ${totalFrames} frames`);
+  const t = qs('recStatus').firstChild;
+  if(t) t.textContent = text;
+}
+async function _exportVideoMp4_WebCodecs(){
+  _setStatus('Preparing encoder…');
   qs('exportMp4').textContent = 'STOP';
   let cancelled = false;
-  qs('exportMp4').onclick_cancel = () => { cancelled = true; };
-  // Replace click handler temporarily so STOP cancels
-  const origClick = qs('exportMp4').onclick;
   const stopBtn = qs('exportMp4');
   const stopHandler = (e) => { e.preventDefault(); cancelled = true; };
-  stopBtn.addEventListener('click', stopHandler, { once: true });
-  const microsPerFrame = 1e6 / fps;
-  const keyEvery = Math.max(12, fps * 2);
-  for(let i = 0; i < totalFrames && !cancelled; i++){
-    const t = i / fps;
-    // Seek to this exact time, paused
-    if(Math.abs(videoEl.currentTime - t) > 1/(fps*2)){
-      await new Promise(res => {
-        const s = () => { videoEl.removeEventListener('seeked', s); res(); };
-        videoEl.addEventListener('seeked', s);
-        try { videoEl.currentTime = t; } catch(_){ res(); }
-      });
+  stopBtn.addEventListener('click', stopHandler);
+  try {
+    const nativeW = videoEl.videoWidth, nativeH = videoEl.videoHeight;
+    if(!nativeW || !nativeH) throw new Error('Video has no decoded dimensions yet');
+    // Snapshot + resize canvas to native
+    const prevPreset = qs('sizePreset').value;
+    const prevCW = qs('customW').value, prevCH = qs('customH').value;
+    qs('sizePreset').value = 'custom';
+    qs('customW').value = nativeW; qs('customH').value = nativeH;
+    applyOutputSize();
+    videoEl.pause();
+    const hadLoop = videoEl.loop; videoEl.loop = false;
+    _setStatus('Detecting source frame rate…');
+    await _safeSeek(0, 1500);
+    const fps = await _detectSourceFps();
+    videoEl.pause();
+    await _safeSeek(0, 1500);
+    const duration = videoEl.duration;
+    const totalFrames = Math.max(1, Math.floor(duration * fps));
+    _setStatus('Loading muxer…');
+    let mux;
+    try { mux = await import('https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.2/+esm'); }
+    catch(e){ throw new Error('Failed to load mp4-muxer: ' + e.message); }
+    const { Muxer, ArrayBufferTarget } = mux;
+    _setStatus('Configuring H.264 encoder…');
+    const codecCandidates = ['avc1.640033','avc1.640032','avc1.640028','avc1.4D0028','avc1.42E028','avc1.42E01E'];
+    let codec = null;
+    for(const c of codecCandidates){
+      try {
+        const r = await VideoEncoder.isConfigSupported({ codec: c, width: nativeW, height: nativeH, bitrate: _bitrateFor(nativeW, nativeH), framerate: fps });
+        if(r && r.supported){ codec = c; break; }
+      } catch(_){}
     }
-    // Wait one rVFC tick so the new frame is fully decoded
-    if(typeof videoEl.requestVideoFrameCallback === 'function'){
-      await new Promise(r => videoEl.requestVideoFrameCallback(() => r()));
+    if(!codec) throw new Error('No supported H.264 config for ' + nativeW + '×' + nativeH);
+    const muxer = new Muxer({
+      target: new ArrayBufferTarget(),
+      video: { codec: 'avc', width: nativeW, height: nativeH, frameRate: fps },
+      fastStart: 'in-memory',
+    });
+    let encoderError = null;
+    const encoder = new VideoEncoder({
+      output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+      error: e => { encoderError = e; console.error('VideoEncoder error:', e); },
+    });
+    encoder.configure({
+      codec, width: nativeW, height: nativeH,
+      bitrate: _bitrateFor(nativeW, nativeH),
+      framerate: fps,
+      latencyMode: 'quality',
+    });
+    if(!videoFrameCanvas){
+      videoFrameCanvas = document.createElement('canvas');
+      videoFrameCtx = videoFrameCanvas.getContext('2d', { willReadFrequently: true });
     }
-    // Depth extract
-    const dw = videoEl.videoWidth, dh = videoEl.videoHeight;
-    const maxDim = 320;
-    const sc = Math.min(1, maxDim / Math.max(dw, dh));
-    const w = Math.max(1, Math.floor(dw * sc)), h = Math.max(1, Math.floor(dh * sc));
-    if(videoFrameCanvas.width !== w) videoFrameCanvas.width = w;
-    if(videoFrameCanvas.height !== h) videoFrameCanvas.height = h;
-    videoFrameCtx.drawImage(videoEl, 0, 0, w, h);
-    const img = videoFrameCtx.getImageData(0, 0, w, h);
-    const gray = _cheatDepthFromFrame(img.data, w, h);
-    depthRaw = gray;
-    storeOriginalDepth(gray, w, h);
-    uploadDepthCovering(gray, w, h);
-    renderPasses();
-    // Encode this frame
-    const vf = new VideoFrame(outCv, { timestamp: Math.round(i * microsPerFrame), duration: Math.round(microsPerFrame) });
-    encoder.encode(vf, { keyFrame: (i % keyEvery) === 0 });
-    vf.close();
-    if((i & 3) === 0){
-      const pct = ((i+1) / totalFrames) * 100;
-      if(qs('recFill')) qs('recFill').style.width = Math.min(100, pct) + '%';
-      qs('recStatus').firstChild && (qs('recStatus').firstChild.textContent = `Encoding ${nativeW}×${nativeH} @ ${fps}fps · frame ${i+1}/${totalFrames}`);
-      // Yield so encoder queue drains and UI updates
-      if(encoder.encodeQueueSize > 8) await new Promise(r => setTimeout(r, 0));
+    // Intermediate 2D canvas at native size — VideoFrame from a WebGL canvas can be
+    // empty (no preserveDrawingBuffer), so we drawImage() the GL canvas into a 2D one
+    // and construct the VideoFrame from that. drawImage on a fresh GL canvas is reliable.
+    const frameOut = document.createElement('canvas');
+    frameOut.width = nativeW; frameOut.height = nativeH;
+    const frameOutCtx = frameOut.getContext('2d');
+    _setStatus(`Encoding ${nativeW}×${nativeH} @ ${fps}fps · frame 0/${totalFrames}`);
+    if(qs('recFill')) qs('recFill').style.width = '0%';
+    const microsPerFrame = 1e6 / fps;
+    const keyEvery = Math.max(12, fps * 2);
+    for(let i = 0; i < totalFrames && !cancelled && !encoderError; i++){
+      const t = i / fps;
+      if(Math.abs(videoEl.currentTime - t) > 1/(fps*2)){
+        await _safeSeek(t, 1200);
+      }
+      await _safeRvfc(200);
+      // Depth at downsampled res
+      const dw = videoEl.videoWidth, dh = videoEl.videoHeight;
+      const maxDim = 320;
+      const sc = Math.min(1, maxDim / Math.max(dw, dh));
+      const w = Math.max(1, Math.floor(dw * sc)), h = Math.max(1, Math.floor(dh * sc));
+      if(videoFrameCanvas.width !== w) videoFrameCanvas.width = w;
+      if(videoFrameCanvas.height !== h) videoFrameCanvas.height = h;
+      videoFrameCtx.drawImage(videoEl, 0, 0, w, h);
+      const img = videoFrameCtx.getImageData(0, 0, w, h);
+      const gray = _cheatDepthFromFrame(img.data, w, h);
+      depthRaw = gray;
+      storeOriginalDepth(gray, w, h);
+      uploadDepthCovering(gray, w, h);
+      renderPasses();
+      // Copy WebGL canvas to a 2D canvas synchronously, then encode from the 2D one
+      frameOutCtx.drawImage(outCv, 0, 0, nativeW, nativeH);
+      try {
+        const vf = new VideoFrame(frameOut, { timestamp: Math.round(i * microsPerFrame), duration: Math.round(microsPerFrame) });
+        encoder.encode(vf, { keyFrame: (i % keyEvery) === 0 });
+        vf.close();
+      } catch(e){
+        console.warn('Frame encode skipped at', i, e);
+      }
+      if((i & 3) === 0){
+        const pct = ((i+1) / totalFrames) * 100;
+        if(qs('recFill')) qs('recFill').style.width = Math.min(100, pct) + '%';
+        _setStatus(`Encoding ${nativeW}×${nativeH} @ ${fps}fps · frame ${i+1}/${totalFrames}`);
+        // Drain encoder queue
+        while(encoder.encodeQueueSize > 6 && !cancelled) await new Promise(r => setTimeout(r, 0));
+      }
     }
+    _setStatus('Finalising…');
+    await encoder.flush();
+    if(encoderError) throw encoderError;
+    muxer.finalize();
+    if(!cancelled){
+      const blob = new Blob([muxer.target.buffer], { type: 'video/mp4' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `massive-pattern-${selectedPattern.toLowerCase()}-${nativeW}x${nativeH}-${fps}fps.mp4`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    }
+    // Restore canvas + state
+    qs('sizePreset').value = prevPreset;
+    qs('customW').value = prevCW; qs('customH').value = prevCH;
+    applyOutputSize();
+    videoEl.loop = hadLoop;
+  } finally {
+    stopBtn.removeEventListener('click', stopHandler);
+    qs('recStatus').style.display = 'none';
+    qs('exportMp4').textContent = 'MP4';
+    videoMp4Active = false;
+    if(videoMode) startVideoDepthLoop();
   }
-  await encoder.flush();
-  muxer.finalize();
-  // Restore STOP click handler
-  stopBtn.removeEventListener('click', stopHandler);
-  if(!cancelled){
-    const blob = new Blob([muxer.target.buffer], { type: 'video/mp4' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `massive-pattern-${selectedPattern.toLowerCase()}-${nativeW}x${nativeH}-${fps}fps.mp4`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
-  }
-  // Restore canvas + state
-  qs('sizePreset').value = prevPreset;
-  qs('customW').value = prevCW; qs('customH').value = prevCH;
-  applyOutputSize();
-  videoEl.loop = hadLoop;
-  qs('recStatus').style.display = 'none';
-  qs('exportMp4').textContent = 'MP4';
-  videoMp4Active = false;
-  if(videoMode) startVideoDepthLoop();
 }
 
 // Frame-accurate video MP4 export — full video, native resolution, native fps, in order

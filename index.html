@@ -1,0 +1,2951 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MassiveMusic — Pattern Studio</title>
+<style>
+/* ========== THEMES ========== */
+:root[data-theme="dark"]  {
+  --bg:#000; --panel:#0D0D0D; --panel-2:#141418; --border:#1E1E1E;
+  --text:#FFFFFF; --muted:#777; --accent:#FF4E00; --accent-hi:#FF6A2A;
+  --canvas-bg:#000; --on-accent:#FFFFFF;
+}
+:root[data-theme="light"] {
+  --bg:#F2F2F0; --panel:#FFFFFF; --panel-2:#F7F7F5; --border:#E2E2DE;
+  --text:#0B0B0D; --muted:#6B6B70; --accent:#FF4E00; --accent-hi:#FF6A2A;
+  --canvas-bg:#EAEAE6; --on-accent:#FFFFFF;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--text);font-family:"FormaDJRDisplay","Helvetica Neue",Arial,sans-serif;font-size:13px;-webkit-font-smoothing:antialiased}
+button,input,select{font-family:inherit;color:inherit}
+body{display:flex;flex-direction:column;overflow:hidden}
+
+/* ========== HEADER ========== */
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;height:48px;flex-shrink:0;
+  border-bottom:1px solid var(--border);background:var(--bg);
+}
+.brand-wordmark{display:flex;align-items:center;gap:10px;color:var(--text)}
+.brand-wordmark .dot{width:8px;height:8px;background:var(--accent);flex-shrink:0}
+.brand-wordmark svg{height:18px;width:auto;display:block;fill:currentColor}
+.header-meta{font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted)}
+.header-right{display:flex;align-items:center;gap:14px}
+.theme-toggle{
+  background:transparent;border:1px solid var(--border);color:var(--text);
+  width:34px;height:24px;cursor:pointer;font-size:11px;
+  display:flex;align-items:center;justify-content:center;
+}
+.theme-toggle:hover{border-color:var(--accent)}
+
+/* ========== MAIN LAYOUT — 3-column grid: left panel | canvas | right panel ========== */
+main.studio{
+  flex:1;display:grid;
+  grid-template-columns:300px 1fr 300px;
+  min-height:0;overflow:hidden;
+  background:var(--canvas-bg);
+}
+.canvas-stage{
+  position:relative;
+  display:flex;align-items:center;justify-content:center;
+  padding:30px 24px 24px;
+  overflow:hidden;
+  background:var(--canvas-bg);
+}
+/* Canvas fits within the centre area, preserving its aspect ratio */
+.canvas-stage canvas{
+  display:block;
+  max-width:100%;max-height:100%;
+  border:1px solid rgba(255,255,255,0.6);
+  box-shadow:0 0 0 1px rgba(0,0,0,0.25);
+  background:#000;
+}
+:root[data-theme="light"] .canvas-stage canvas{
+  border-color:rgba(0,0,0,0.6);
+  box-shadow:0 0 0 1px rgba(255,255,255,0.4);
+}
+.stage-meta{
+  position:absolute;top:8px;left:50%;transform:translateX(-50%);
+  font-size:10px;letter-spacing:0.16em;text-transform:uppercase;
+  color:var(--muted);font-variant-numeric:tabular-nums;
+  pointer-events:none;
+}
+
+/* Side panels — frosted glass, fixed width, no scroll */
+.overlay-panel{
+  display:flex;flex-direction:column;
+  background:rgba(20,20,22,0.55);
+  backdrop-filter:blur(28px) saturate(140%);
+  -webkit-backdrop-filter:blur(28px) saturate(140%);
+  overflow-y:auto;
+  z-index:5;
+}
+.overlay-panel.panel-left{border-right:1px solid rgba(255,255,255,0.08)}
+.overlay-panel.panel-right{border-left:1px solid rgba(255,255,255,0.08)}
+:root[data-theme="light"] .overlay-panel{
+  background:rgba(255,255,255,0.55);
+}
+:root[data-theme="light"] .overlay-panel.panel-left{border-right-color:rgba(0,0,0,0.08)}
+:root[data-theme="light"] .overlay-panel.panel-right{border-left-color:rgba(0,0,0,0.08)}
+.overlay-panel::-webkit-scrollbar{width:4px}
+.overlay-panel::-webkit-scrollbar-track{background:transparent}
+.overlay-panel::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15)}
+
+/* Flat sections — always visible, no scrolling */
+.ov-section{border-bottom:1px solid rgba(255,255,255,0.08)}
+.ov-section:last-child{border-bottom:none}
+:root[data-theme="light"] .ov-section{border-bottom-color:rgba(0,0,0,0.08)}
+.ov-section > summary{
+  list-style:none;
+  padding:11px 16px 6px;
+  font-size:10px;letter-spacing:0.18em;text-transform:uppercase;
+  color:var(--muted);font-weight:700;
+  user-select:none;cursor:default;
+}
+.ov-section > summary::-webkit-details-marker{display:none}
+.ov-body{padding:0 16px 14px;display:flex;flex-direction:column;gap:10px}
+
+/* Section labels (sub-headings within an ov-body) */
+.section{display:flex;flex-direction:column;gap:6px}
+.section-label{
+  font-size:9px;letter-spacing:0.2em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:2px;
+}
+
+/* ========== DROPZONE ========== */
+.dropzone{
+  border:1px dashed var(--border);
+  padding:10px 8px;text-align:center;cursor:pointer;
+  transition:border-color .15s, background .15s;
+  background:var(--panel-2);
+}
+.dropzone:hover,.dropzone.drag{border-color:var(--accent);background:var(--panel)}
+.dropzone .dz-primary{font-size:12px;color:var(--text);letter-spacing:0.02em}
+.dropzone a{color:var(--accent);text-decoration:underline;cursor:pointer}
+
+/* ========== BUTTONS ========== */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  padding:10px 12px;background:transparent;color:var(--text);
+  border:1px solid var(--border);font-size:11px;cursor:pointer;
+  letter-spacing:0.06em;text-transform:uppercase;font-weight:600;
+  transition:all .12s;width:100%;
+}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.primary:hover{background:var(--accent-hi);border-color:var(--accent-hi);color:var(--on-accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed;border-color:var(--border);color:var(--muted);background:transparent}
+.btn.primary:disabled{background:var(--border);color:var(--muted);border-color:var(--border)}
+.btn.sm{padding:6px 10px;font-size:10px}
+.btn-row{display:flex;gap:6px}
+.btn-row .btn{flex:1}
+
+/* ========== STATUS ========== */
+.status{
+  padding:10px 12px;background:var(--panel-2);border:1px solid var(--border);
+  font-size:11px;color:var(--muted);min-height:36px;font-variant-numeric:tabular-nums;
+  line-height:1.5;
+}
+.status.ok{color:var(--accent)}
+.status.err{color:#ff6464}
+.status .bar{margin-top:5px;height:2px;background:var(--border);overflow:hidden}
+.status .bar .fill{height:100%;background:var(--accent);width:0%;transition:width .15s}
+
+/* ========== DEPTH MINI PREVIEW ========== */
+.depth-mini{
+  width:100%;aspect-ratio:1;background:var(--canvas-bg);
+  border:1px solid var(--border);position:relative;overflow:hidden;
+}
+.depth-mini canvas{width:100%;height:100%;display:block;object-fit:contain}
+.depth-mini .empty{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:10px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;
+}
+
+/* ========== SELECT ========== */
+select.field, input[type=text].field{
+  width:100%;background:var(--panel-2);color:var(--text);
+  border:1px solid var(--border);padding:9px 10px;font-size:12px;
+  cursor:pointer;outline:none;
+}
+select.field:hover, select.field:focus{border-color:var(--accent)}
+
+/* ========== SLIDERS ========== */
+/* Reference-style horizontal slider — LABEL ─── TRACK ─── VALUE */
+.slider-row{display:grid;grid-template-columns:78px 1fr 46px;align-items:center;gap:12px;min-height:18px}
+.slider-row > label{
+  font-size:10px;color:var(--text);letter-spacing:0.12em;
+  text-transform:uppercase;font-weight:600;line-height:1;
+}
+.slider-row > .val{
+  color:var(--text);font-variant-numeric:tabular-nums;font-weight:500;font-size:11px;
+  text-align:right;letter-spacing:0;
+}
+.slider-row .range-wrap{position:relative;display:flex;align-items:center;height:18px}
+.slider-row input[type=range]{
+  width:100%;-webkit-appearance:none;appearance:none;
+  height:2px;background:rgba(255,255,255,0.25);outline:none;cursor:pointer;display:block;
+}
+:root[data-theme="light"] .slider-row input[type=range]{background:rgba(0,0,0,0.2)}
+.slider-row input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;
+  width:10px;height:10px;background:var(--text);cursor:pointer;
+  border:none;border-radius:50%;
+}
+.slider-row input[type=range]::-moz-range-thumb{
+  width:10px;height:10px;background:var(--text);border:none;cursor:pointer;border-radius:50%;
+}
+/* Bipolar slider — visible centre mark for ± ranges (e.g. Speed) */
+.slider-row .range-wrap.bipolar::before{
+  content:'';position:absolute;left:50%;top:50%;
+  width:2px;height:8px;
+  background:rgba(255,255,255,0.35);
+  transform:translate(-50%,-50%);pointer-events:none;
+}
+:root[data-theme="light"] .slider-row .range-wrap.bipolar::before{background:rgba(0,0,0,0.3)}
+
+/* ========== CONTROLS GRID ========== */
+.controls-grid{display:flex;flex-direction:column;gap:14px}
+
+/* ========== PATTERN PICKER ========== */
+.pattern-grid{display:flex;flex-direction:column;gap:0}
+.pattern-btn{
+  background:transparent;border:none;color:var(--text);
+  padding:12px 4px;font-size:12px;cursor:pointer;
+  font-family:inherit;letter-spacing:0.1em;transition:background .12s, color .12s;line-height:1;
+  text-transform:uppercase;font-weight:600;
+  display:flex;align-items:center;gap:10px;
+  border-bottom:1px solid rgba(255,255,255,0.04);
+}
+.pattern-btn:last-child{border-bottom:none}
+:root[data-theme="light"] .pattern-btn{border-bottom-color:rgba(0,0,0,0.04)}
+.pattern-btn:hover{color:var(--accent)}
+.pattern-btn .check{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:14px;height:14px;color:var(--accent);opacity:0;font-size:14px;flex-shrink:0;
+}
+.pattern-btn.active .check{opacity:1}
+.pattern-btn.active{color:var(--accent)}
+.pattern-btn .pattern-icon{opacity:0.55;width:18px;height:18px;flex-shrink:0;display:block;stroke-width:1.4}
+.pattern-btn:hover .pattern-icon{opacity:0.85}
+.pattern-btn.active .pattern-icon{opacity:1}
+
+/* ========== QUICKTIME-STYLE VIDEO TRIM ========== */
+.qt-trim{
+  position:relative;height:44px;
+  border-radius:6px;background:#1a1a1a;
+  overflow:visible;user-select:none;
+  margin:4px 8px;
+}
+.qt-strip{
+  position:absolute;inset:0;border-radius:6px;
+  background:repeating-linear-gradient(90deg,#222 0 8px,#2a2a2a 8px 16px);
+}
+.qt-selection{
+  position:absolute;top:-3px;bottom:-3px;
+  left:0;width:100%;
+  background:rgba(255,206,0,0.08);
+  border-top:3px solid #ffce00;
+  border-bottom:3px solid #ffce00;
+  z-index:2;
+  cursor:grab;
+  box-sizing:border-box;
+}
+.qt-selection:active{cursor:grabbing}
+.qt-handle{
+  position:absolute;top:-3px;bottom:-3px;width:11px;
+  background:#ffce00;cursor:ew-resize;
+  display:flex;align-items:center;justify-content:center;
+  z-index:3;
+}
+.qt-handle.qt-start{left:-11px;border-radius:4px 0 0 4px}
+.qt-handle.qt-end{right:-11px;border-radius:0 4px 4px 0}
+.qt-handle span{
+  width:1.5px;height:18px;background:rgba(0,0,0,0.5);border-radius:1px;
+}
+.qt-playhead{
+  position:absolute;top:-4px;bottom:-4px;width:2px;
+  background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,0.4);
+  z-index:4;pointer-events:none;
+  border-radius:1px;
+}
+.qt-times{
+  display:flex;justify-content:space-between;
+  font-size:10px;color:var(--muted);
+  font-variant-numeric:tabular-nums;letter-spacing:0.04em;
+  padding:0 4px;
+}
+
+/* ========== ORIGIN PAD ========== */
+.origin-pad{
+  width:100%;aspect-ratio:2/1;background:rgba(0,0,0,0.25);
+  border:1px solid rgba(255,255,255,0.08);position:relative;cursor:crosshair;
+  overflow:hidden;
+}
+:root[data-theme="light"] .origin-pad{background:rgba(0,0,0,0.06);border-color:rgba(0,0,0,0.1)}
+.origin-indicator{
+  position:absolute;width:12px;height:12px;background:var(--accent);
+  border:2px solid var(--panel);transform:translate(-50%,-50%);
+  pointer-events:none;box-shadow:0 0 8px rgba(255,78,0,0.6);
+}
+
+/* ========== CUSTOM PALETTE EDITOR ========== */
+.custom-row{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.custom-row input[type=color]{
+  width:28px;height:24px;border:1px solid var(--border);background:none;
+  padding:0;cursor:pointer;flex-shrink:0;
+}
+.custom-row .cc-hex{
+  width:62px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);
+  padding:3px 5px;font-size:10px;font-family:monospace;text-transform:uppercase;
+  outline:none;letter-spacing:0.02em;
+}
+.custom-row .cc-hex:focus{border-color:var(--accent)}
+.custom-row input[type=range]{flex:1;-webkit-appearance:none;height:2px;background:var(--border);outline:none;cursor:pointer}
+.custom-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;background:var(--accent);cursor:pointer}
+.custom-row .stopval{font-size:9px;color:var(--muted);width:28px;text-align:right;font-variant-numeric:tabular-nums}
+
+.palette-item{position:relative}
+.palette-del{
+  position:absolute;right:6px;top:50%;transform:translateY(-50%);
+  background:transparent;color:var(--muted);border:none;font-size:14px;cursor:pointer;
+  width:16px;height:16px;line-height:1;padding:0;
+}
+.palette-del:hover{color:var(--accent)}
+
+/* ========== BATCH GRID ========== */
+#batchGrid{
+  display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px;
+}
+.batch-thumb{
+  aspect-ratio:1;background:var(--panel-2);border:1px solid var(--border);
+  position:relative;overflow:hidden;cursor:pointer;
+}
+.batch-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.batch-thumb:hover{border-color:var(--accent)}
+.batch-thumb.loading::after{
+  content:'';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:var(--panel-2);
+}
+.batch-spinner{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:14px;height:14px;border:1.5px solid var(--muted);border-right-color:transparent;
+  border-radius:50%;animation:spin .7s linear infinite;
+}
+
+/* ========== PALETTE LIST ========== */
+.palette-list{display:flex;flex-direction:column;gap:0}
+.palette-item{
+  display:flex;align-items:center;gap:10px;padding:11px 4px;
+  background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,0.04);
+  cursor:pointer;transition:color .12s;
+}
+:root[data-theme="light"] .palette-item{border-bottom-color:rgba(0,0,0,0.04)}
+.palette-item:last-child{border-bottom:none}
+.palette-item:hover .palette-name{color:var(--accent)}
+.palette-item.active .palette-name{color:var(--accent)}
+.palette-item .check-mark{margin-left:auto;color:var(--accent);font-size:14px;opacity:0;flex-shrink:0}
+.palette-item.active .check-mark{opacity:1}
+.palette-swatches{display:flex;gap:2px}
+.palette-swatches .sw{width:12px;height:12px;flex-shrink:0}
+.palette-name{font-size:12px;color:var(--text);letter-spacing:0.05em;text-transform:uppercase}
+
+/* ========== CHECK / TOGGLE ========== */
+.check{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text);cursor:pointer}
+.check input{accent-color:var(--accent)}
+
+/* ========== OUTPUT CANVAS ========== */
+.output-wrap{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  background:var(--canvas-bg);border:1px solid var(--border);
+  min-height:0;overflow:hidden;position:relative;
+}
+.output-wrap canvas{max-width:100%;max-height:100%;display:block}
+.output-empty{
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  color:var(--muted);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;gap:6px;
+}
+.output-empty .big{font-size:11px;color:var(--text);font-weight:600}
+
+/* ========== EXPORT ========== */
+.export-row{display:flex;gap:4px}
+.export-row .btn{flex:1;padding:10px 6px;font-size:11px}
+
+/* ========== RECORDING UI ========== */
+#recBar{height:2px;background:var(--border);overflow:hidden;margin-top:6px}
+#recFill{height:100%;background:var(--accent);width:0%;transition:width .15s}
+
+/* ========== HEADER RIGHT STATUS ========== */
+.anim-dot{
+  width:6px;height:6px;background:var(--accent);
+  display:inline-block;vertical-align:middle;margin-right:6px;
+  animation:pulse 1.5s ease-in-out infinite;
+}
+.anim-dot.paused{animation:none;background:var(--muted)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ========== AI BUTTON ACCENT ========== */
+.btn.ai{border-color:var(--accent);color:var(--accent)}
+.btn.ai:hover{background:var(--accent);color:var(--on-accent)}
+.ai-loading{display:inline-block;width:8px;height:8px;border:1.5px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Responsive — narrow viewports collapse to single column */
+@media (max-width:1100px){
+  main.studio{grid-template-columns:260px 1fr 260px}
+}
+@media (max-width:900px){
+  main.studio{grid-template-columns:1fr}
+  .overlay-panel{max-height:40vh}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand-wordmark">
+    <span class="dot"></span>
+    <svg viewBox="0 0 1242 116" xmlns="http://www.w3.org/2000/svg" aria-label="MassiveMusic">
+      <path d="M251,99.7c-7.2,0-13-5.8-13-13V27.3c0-1.9-1.8-3.5-4-3.5s-3.9,1.6-3.9,3.5v45.7c0,14.7-13.5,26.7-30,26.7h0c-16.6,0-30-12-30-26.7V27.3c0-1.9-1.8-3.5-4-3.5s-3.9,1.6-3.9,3.5v61.4c0,14.7-13.5,26.8-30.1,26.8s-30.1-12-30.1-26.8V27.3c0-1.9-1.8-3.5-4-3.5s-3.9,1.6-3.9,3.5v45.7c0,14.7-13.5,26.7-30,26.7s-30-12-30-26.7V27.3c0-1.9-1.8-3.5-4-3.5s-3.9,1.6-3.9,3.5v70.1s-26.1,0-26.1,0V27.3C.2,12.6,13.7.6,30.2.6s30,12,30,26.7v45.5c0,1.7,1.2,3.2,3.1,3.6,2.6.5,4.8-1.2,4.8-3.4V27.3c0-14.7,13.5-26.7,30-26.7s30,12,30,26.7v61.3c0,1.9,1.6,3.6,3.7,3.8,2.3.2,4.3-1.5,4.3-3.6V27.3c0-14.7,13.5-26.7,30-26.7s30,12,30,26.7v45.5c0,1.7,1.2,3.2,3.1,3.6,2.6.5,4.8-1.2,4.8-3.4V27.3c0-14.7,13.5-26.7,30-26.7s30,12,30,26.7v59.4c0,7.2-5.8,13-13,13h0Z"/>
+      <path d="M1022.6,66.8c0,6.7-.9,17.2-16,17.2s-16.4-10.5-16.4-17.2v-26.3h-21.6v27.4c0,14.6,5.4,30.7,38,30.7s37.8-16.1,37.8-30.7v-27.4h-21.6v26.3ZM805.8,83.1v-7.9h44.8v-13.4h-44.8v-7.1h45.9v-14.2h-67.9v56.8h68.4v-14.2h-46.4ZM666.7,40.5v56.8h22v-56.8h-22ZM446.3,40.5l-28,56.8h22l4.3-9h35.5l4.3,9h22l-28-56.8h-32.3ZM1201.8,53.8c14,0,17.2,5.3,18.4,8.4h21.6c-2.3-13.9-14.2-23-40.2-23s-41,16-41,29.5,8.9,29.9,41,29.9,38.4-8.3,40.4-23.5h-21.6c-1.2,3.4-4.3,8.8-18.4,8.8s-19.4-7.3-19.4-15.2,6.5-15,19.2-15ZM692.3,40.5l28.2,56.8h31.6l28.2-56.8h-23.5l-20.5,43.1-20.5-43.1h-23.5ZM910.7,74.3l-16.3-33.8h-32.6v56.8h20v-38.1l19.2,38.1h19.7l19.1-38.1v38.1h19.7v-56.8h-31.8l-17,33.8ZM1133.2,40.5l-.5,56.8h22.5v-56.8h-22ZM366,74.3l-16.3-33.8h-32.6v56.8h20v-38.1l19.2,38.1h19.7l19.1-38.1v38.1h19.7v-56.8h-31.8l-17,33.8ZM503.8,57.2c0,9.3,5.7,16.6,28.4,17.7l14.5.6c7.5.3,11.2.5,11.2,3.9s-4.2,6.2-17,6.2-16.8-6.8-17-8.5h-20.7c2.3,13.1,11.9,21.4,37.8,21.4s37.9-7.2,37.9-18.9-9.3-16.4-30.7-17.3l-14.2-.6c-5.3-.2-9.1-.7-9.1-4.2s6.2-5.5,17.1-5.5c17.9,0,15.8,6,16.1,7.7h20.7c-2.3-12.3-11.9-20.6-36.8-20.6s-38,7.8-38,18ZM584.4,57.2c0,9.3,5.7,16.6,28.4,17.7l14.5.6c7.5.3,11.2.5,11.2,3.9s-4.2,6.2-17,6.2-16.8-6.8-17-8.5h-20.7c2.3,13.1,11.9,21.4,37.8,21.4s37.9-7.2,37.9-18.9-9.3-16.4-30.8-17.3l-14.2-.6c-5.3-.2-9.1-.7-9.1-4.2s6.2-5.5,17.1-5.5c17.9,0,15.8,6,16.1,7.7h20.7c-2.3-12.3-11.9-20.6-36.8-20.6s-38,7.8-38,18ZM1051.3,57.2c0,9.3,5.7,16.6,28.4,17.7l14.5.6c7.5.3,11.2.5,11.2,3.9s-4.2,6.2-17,6.2-16.8-6.8-17-8.5h-20.7c2.3,13.1,11.9,21.4,37.8,21.4s37.9-7.2,37.9-18.9-9.3-16.4-30.8-17.3l-14.2-.6c-5.3-.2-9.1-.7-9.1-4.2s6.2-5.5,17.1-5.5c17.8,0,15.8,6,16.1,7.7h20.7c-2.3-12.3-11.9-20.6-36.8-20.6s-38,7.8-38,18ZM452.2,74.4l10.2-20.6,10.2,20.6h-20.4Z"/>
+    </svg>
+  </div>
+  <div class="header-meta">Pattern Studio</div>
+  <div class="header-right">
+    <label class="header-meta" style="cursor:pointer;display:inline-flex;align-items:center;gap:8px">
+      <input type="checkbox" id="animate" checked style="accent-color:var(--accent);margin:0"/>
+      <span id="animDot" class="anim-dot"></span><span id="animStatus">Animating</span>
+    </label>
+    <button class="theme-toggle" id="themeToggle" title="Toggle theme">◐</button>
+  </div>
+</header>
+
+<main class="studio">
+
+  <!-- ========== LEFT PANEL — Source + Export ========== -->
+  <aside class="overlay-panel panel-left">
+
+    <details class="ov-section" open>
+      <summary>Source</summary>
+      <div class="ov-body" id="leftSourceBody">
+        <input type="text" id="moodInput" class="field" placeholder="Mood / keyword (e.g. jazz, rave, melancholy)"/>
+
+        <div class="dropzone" id="drop">
+          <input type="file" id="file" accept="image/*,video/*" hidden />
+          <div class="dz-primary">⬆ Drop image or video · <a id="browse">browse</a></div>
+        </div>
+
+        <button class="btn ai" id="aiGen" type="button"><span id="aiGenLabel">✦ AI Generate</span></button>
+
+        <select id="procSelect" class="field" style="font-size:11px">
+          <option value="">Procedural depth…</option>
+          <option value="bold">Bold organic blobs</option>
+          <optgroup label="Gradients">
+            <option value="linear-v">Linear · vertical</option>
+            <option value="linear-h">Linear · horizontal</option>
+            <option value="linear-d">Linear · diagonal</option>
+            <option value="radial">Radial · centre bright</option>
+            <option value="radial-inv">Radial · centre dark</option>
+          </optgroup>
+        </select>
+
+        <div id="videoTrim" style="display:none;flex-direction:column;gap:6px">
+          <video id="srcVideo" muted loop playsinline style="width:100%;border-radius:6px;background:#000;aspect-ratio:16/9;object-fit:contain;display:block"></video>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="btn" id="trimPlayPause" type="button" style="font-size:11px;padding:6px 10px;min-width:34px">▶</button>
+            <span style="font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;flex:1">
+              <span id="v_curTime">0.0s</span> / <span id="v_totalLen">0.0s</span>
+            </span>
+            <span style="font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums">
+              Crop: <span id="v_cropLen">0.0s</span>
+            </span>
+          </div>
+          <div class="qt-trim" id="qtTrim">
+            <div class="qt-strip"></div>
+            <div class="qt-selection" id="qtSel">
+              <div class="qt-handle qt-start" data-side="start"><span></span></div>
+              <div class="qt-handle qt-end" data-side="end"><span></span></div>
+            </div>
+            <div class="qt-playhead" id="qtPlayhead"></div>
+          </div>
+          <div class="qt-times">
+            <span id="v_trimS">0.0s</span>
+            <span id="v_trimE">10.0s</span>
+          </div>
+          <!-- Hidden inputs that the rest of the pipeline reads from -->
+          <input id="trimStart" type="hidden" value="0"/>
+          <input id="trimEnd"   type="hidden" value="10"/>
+        </div>
+
+        <div class="depth-mini">
+          <canvas id="depthCv" width="512" height="512"></canvas>
+          <div class="output-empty" id="depthEmpty"><span>No depth</span></div>
+        </div>
+
+        <div class="status" id="status">Ready<div class="bar"><div class="fill" id="bar"></div></div></div>
+
+        <!-- Hidden helpers used by the engine — keep in DOM, not visible -->
+        <div style="display:none">
+          <img id="srcPreview" alt=""/>
+          <canvas id="shiversCv" width="512" height="512"></canvas>
+          <button id="run"></button>
+        </div>
+      </div>
+    </details>
+
+    <details class="ov-section" open>
+      <summary>Output</summary>
+      <div class="ov-body">
+      <select id="sizePreset" class="field" style="font-size:11px">
+        <option value="native" selected>Native (match depth)</option>
+        <optgroup label="Socials">
+          <option value="1080x1080">1080 × 1080 — Instagram square</option>
+          <option value="1080x1350">1080 × 1350 — IG portrait 4:5</option>
+          <option value="1080x1920">1080 × 1920 — Story / Reel 9:16</option>
+          <option value="1200x628">1200 × 628 — LinkedIn / FB link</option>
+          <option value="1600x900">1600 × 900 — Twitter / X</option>
+          <option value="1280x720">1280 × 720 — YouTube thumb</option>
+        </optgroup>
+        <optgroup label="HD">
+          <option value="1920x1080">1920 × 1080 — Full HD landscape</option>
+          <option value="1080x1920">1080 × 1920 — Full HD portrait</option>
+        </optgroup>
+        <optgroup label="4K">
+          <option value="3840x2160">3840 × 2160 — 4K landscape</option>
+          <option value="2160x3840">2160 × 3840 — 4K portrait</option>
+        </optgroup>
+        <option value="custom">Custom…</option>
+      </select>
+      <div id="customDims" style="display:none;gap:6px;align-items:center">
+        <input id="customW" type="number" min="64" max="16000" value="1080" class="field" style="flex:1;font-size:11px"/>
+        <span style="font-size:11px;color:var(--muted)">×</span>
+        <input id="customH" type="number" min="64" max="16000" value="1080" class="field" style="flex:1;font-size:11px"/>
+        <button class="btn" id="customApply" type="button" style="flex:0 0 56px;font-size:10px;padding:8px">Apply</button>
+      </div>
+      </div>
+    </details>
+
+    <details class="ov-section" open>
+      <summary>Export</summary>
+      <div class="ov-body">
+        <div class="slider-row">
+          <label>Frame</label>
+          <div class="range-wrap"><input id="timeline" type="range" min="0" max="30" step="0.02" value="0"/></div>
+          <span class="val" id="v_tl">0.00s</span>
+        </div>
+        <div class="export-row">
+          <button class="btn" id="exportPng" disabled>PNG</button>
+          <button class="btn" id="exportJpg" disabled>JPG</button>
+          <button class="btn" id="exportMp4" disabled>MP4</button>
+        </div>
+        <div id="recStatus" class="status" style="display:none">Recording…<div id="recBar"><div id="recFill"></div></div></div>
+      </div>
+    </details>
+
+  </aside>
+
+  <!-- ========== CANVAS STAGE (fits aspect ratio inside available area) ========== -->
+  <div class="canvas-stage">
+    <span class="stage-meta" id="stageMeta"></span>
+    <canvas id="outCv" width="768" height="768"></canvas>
+    <div class="output-empty" id="outEmpty">
+      <span class="big">No pattern yet</span>
+      <span>Drop, generate, or pick procedural depth</span>
+    </div>
+  </div>
+
+  <!-- ========== RIGHT PANEL — Pattern + Palette + Controls ========== -->
+  <aside class="overlay-panel panel-right">
+
+    <details class="ov-section" open>
+      <summary>Pattern</summary>
+      <div class="ov-body">
+        <div class="pattern-grid" id="patternGrid">
+          <button class="pattern-btn active" data-pattern="SHIVERS">
+            <svg class="pattern-icon" viewBox="0 0 31.55 31.55" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="bevel">
+              <circle cx="15.78" cy="15.78" r="15.28"/>
+              <circle cx="15.78" cy="15.78" r="9.84"/>
+              <circle cx="15.78" cy="15.78" r="3.43"/>
+            </svg>
+            <span style="flex:1">Shivers</span>
+            <span class="check">✓</span>
+          </button>
+          <button class="pattern-btn" data-pattern="HAIRS">
+            <svg class="pattern-icon" viewBox="0 0 30.95 29.88" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="bevel">
+              <polyline points="30.45 29.38 26.71 .06 22.97 29.38 19.23 .06 15.48 29.38 11.74 .06 8 29.38 4.25 .06 .5 29.38"/>
+            </svg>
+            <span style="flex:1">Hairs</span>
+            <span class="check">✓</span>
+          </button>
+          <button class="pattern-btn" data-pattern="GOOSEBUMPS">
+            <svg class="pattern-icon" viewBox="0 0 31.62 31.72" fill="none" stroke="currentColor" stroke-miterlimit="10">
+              <line x1="8.05" y1=".35" x2=".97" y2="7.43"/>
+              <line x1="15.42" y1=".62" x2=".59" y2="15.45"/>
+              <line x1="22.68" y1="1" x2=".97" y2="22.71"/>
+              <line x1="30.96" y1=".35" x2=".35" y2="30.96"/>
+              <line x1="31.22" y1="7.73" x2="8.03" y2="30.92"/>
+              <line x1="31.26" y1="15.32" x2="15.22" y2="31.36"/>
+              <line x1="30.88" y1="23.34" x2="23.35" y2="30.87"/>
+            </svg>
+            <span style="flex:1">Goosebumps</span>
+            <span class="check">✓</span>
+          </button>
+          <button class="pattern-btn" data-pattern="DILATING">
+            <svg class="pattern-icon" viewBox="0 0 37.69 25.14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="bevel">
+              <path d="M37.27,12.57s-8.25,12.07-18.43,12.07S.41,12.57.41,12.57C.41,12.57,8.66.5,18.84.5s18.43,12.07,18.43,12.07Z"/>
+              <circle cx="18.77" cy="12.6" r="7.93"/>
+              <path d="M37.27,12.57s-8.25,7.9-18.43,7.9S.41,12.57.41,12.57c0,0,8.25-7.9,18.43-7.9s18.43,7.9,18.43,7.9Z"/>
+              <circle cx="18.77" cy="12.6" r="2.48"/>
+            </svg>
+            <span style="flex:1">Dilating</span>
+            <span class="check">✓</span>
+          </button>
+        </div>
+      </div>
+    </details>
+
+    <details class="ov-section" open>
+      <summary>Palette</summary>
+      <div class="ov-body">
+
+        <div class="palette-list" id="paletteList"></div>
+        <select id="paletteMore" class="field" style="font-size:11px;margin-top:6px">
+          <option value="">More palettes…</option>
+        </select>
+        <div id="customPaletteEdit" style="display:none;margin-top:6px">
+          <input id="customName" type="text" class="field" placeholder="Palette name" style="margin-bottom:4px"/>
+          <div id="customColorRows"></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="ov-section" open>
+      <summary>Controls</summary>
+      <div class="ov-body">
+        <div class="origin-pad" id="originPad" title="Drag to set origin point">
+          <div class="origin-indicator" id="originIndicator"></div>
+        </div>
+        <div class="controls-grid">
+          <div class="slider-row"><label>Speed</label><div class="range-wrap bipolar"><input id="s_cspeed" type="range" min="-3" max="3" step="0.05" value="1.0"/></div><span class="val" id="v_cspeed">1.00</span></div>
+          <div class="slider-row"><label>Frequency</label><div class="range-wrap"><input id="s_freq" type="range" min="0.005" max="2" step="0.005" value="0.2"/></div><span class="val" id="v_freq">0.20</span></div>
+          <div class="slider-row"><label>Intensity</label><div class="range-wrap"><input id="s_dalpha" type="range" min="0" max="1" step="0.01" value="1.0"/></div><span class="val" id="v_dalpha">1.00</span></div>
+          <div class="slider-row"><label>Grain</label><div class="range-wrap"><input id="s_noise" type="range" min="0" max="0.5" step="0.005" value="0"/></div><span class="val" id="v_noise">0.00</span></div>
+          <div class="slider-row"><label>Blur</label><div class="range-wrap"><input id="s_blur" type="range" min="0" max="30" step="0.5" value="0"/></div><span class="val" id="v_blur">0</span></div>
+        </div>
+        <!-- Hidden Origin X/Y — driven by origin pad -->
+        <div style="display:none">
+          <input id="s_ox" type="range" min="-1" max="2" step="0.01" value="0.5"/><span id="v_ox"></span>
+          <input id="s_oy" type="range" min="-1" max="2" step="0.01" value="-0.5"/><span id="v_oy"></span>
+        </div>
+      </div>
+    </details>
+
+    <!-- Hidden sliders — engine reads these at fixed defaults -->
+    <div style="display:none">
+      <input id="s_speed" type="range" min="-3" max="3" step="0.05" value="1.0"/><span id="v_speed"></span>
+      <input id="s_power" type="range" min="0.25" max="6" step="0.05" value="1.25"/><span id="v_power"></span>
+      <input id="s_dist" type="range" min="0" max="0.2" step="0.001" value="0.01"/><span id="v_dist"></span>
+      <input id="s_displ" type="range" min="0" max="0.3" step="0.001" value="0.02"/><span id="v_displ"></span>
+      <input id="s_dsoft" type="range" min="0" max="1" step="0.01" value="0.25"/><span id="v_dsoft"></span>
+      <input id="s_lum" type="range" min="0" max="1.5" step="0.01" value="0.15"/><span id="v_lum"></span>
+      <input id="s_alpha" type="range" min="0" max="1" step="0.01" value="0.5"/><span id="v_alpha"></span>
+      <input id="s_lbsoft" type="range" min="0" max="1" step="0.01" value="0.25"/><span id="v_lbsoft"></span>
+      <input id="s_iters" type="range" min="1" max="6" step="1" value="2"/><span id="v_iters"></span>
+      <input id="s_dbmin" type="range" min="0" max="1" step="0.01" value="0"/><span id="v_dbmin"></span>
+      <input id="s_dbmax" type="range" min="0" max="1" step="0.01" value="1"/><span id="v_dbmax"></span>
+      <input id="s_lbmin" type="range" min="0" max="1" step="0.01" value="0"/><span id="v_lbmin"></span>
+      <input id="s_lbmax" type="range" min="0" max="1" step="0.01" value="1"/><span id="v_lbmax"></span>
+      <input id="s_cfreq" type="range" min="0.05" max="3" step="0.01" value="0.5"/><span id="v_cfreq"></span>
+      <input id="s_wfreq" type="range" min="0" max="8" step="0.05" value="2.5"/><span id="v_wfreq"></span>
+      <input id="s_wspeed" type="range" min="0" max="8" step="0.05" value="3.75"/><span id="v_wspeed"></span>
+      <input id="s_wpow" type="range" min="0.25" max="8" step="0.05" value="2.5"/><span id="v_wpow"></span>
+      <input id="s_wamp" type="range" min="0" max="0.2" step="0.001" value="0.025"/><span id="v_wamp"></span>
+      <select id="stopsMode"><option value="even" selected>Even</option><option value="user">User</option></select>
+      <span id="v_stopsmode"></span>
+    </div>
+
+  </aside>
+
+</main>
+
+<script type="module">
+import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.2/dist/transformers.min.js';
+env.allowLocalModels = false;
+
+/* ==================== PALETTES ==================== */
+const PALETTES = {
+  ENERGIZED:   { name:'Energized',   colors:["#214D56","#5496E3","#F057ED","#F2672C"], userStops:[0.0, 0.2, 0.4, 0.75] },
+  INSPIRED:    { name:'Inspired',    colors:["#B9E887","#F2672C","#41287B","#5496E3"], userStops:[0.0, 0.15, 0.45, 0.6] },
+  OVERJOYED:   { name:'Overjoyed',   colors:["#FF9B55","#C5FA75","#F2672C","#D3C8BF"], userStops:[0.0, 0.5, 0.75, 0.85] },
+  REFLECTIVE:  { name:'Reflective',  colors:["#F2672C","#85CBEF","#1A2839","#174E48"], userStops:[0.0, 0.1, 0.25, 0.9] },
+  ASSURED:     { name:'Assured',     colors:["#E0D6CA","#8181B1","#AA6D7D","#F2672C"], userStops:[0.0, 0.5, 0.8, 0.9] },
+  // New palettes — sampled from attached C1–C4 gradient reference
+  FERVOR:      { name:'Fervor',      colors:["#E98FD3","#8B5A9E","#3D3B5A","#3F5654"], userStops:[0.0, 0.33, 0.66, 1.0] },
+  INQUISITIVE: { name:'Inquisitive', colors:["#5FEA82","#6A9CD5","#6956D6","#2C1CAB"], userStops:[0.0, 0.33, 0.66, 1.0] },
+  FOCUSED:     { name:'Focused',     colors:["#3D1420","#C62C3F","#E36B9E","#B9A0DC"], userStops:[0.0, 0.33, 0.66, 1.0] },
+  SERENITY:    { name:'Serenity',    colors:["#68C6E7","#A596DB","#CFC8A2","#EEEC7A"], userStops:[0.0, 0.33, 0.66, 1.0] },
+  // ── Genre-cliché palettes — drawn from typical album-cover colour conventions
+  GENRE_CINEMATIC:    { name:'Genre · Cinematic',     colors:['#0E3A4D','#E0A03D','#C9532A','#F0E6D2'], userStops:[0, 0.4, 0.7, 1.0] },
+  GENRE_ROCK:         { name:'Genre · Rock',          colors:['#0A0A0A','#B81818','#F8F8F8','#2A2A2A'], userStops:[0, 0.4, 0.75, 1.0] },
+  GENRE_INDIE_ROCK:   { name:'Genre · Indie Rock',    colors:['#3D3D3D','#C97757','#C9A348','#5A8B8B'], userStops:[0, 0.35, 0.65, 0.95] },
+  GENRE_EDM:          { name:'Genre · EDM',           colors:['#0A0A1F','#FF1B8D','#00E5FF','#8B00FF'], userStops:[0, 0.35, 0.7, 0.95] },
+  GENRE_HOUSE:        { name:'Genre · House',         colors:['#1A0B2E','#6B2DD9','#F72585','#00B4D8'], userStops:[0, 0.35, 0.7, 0.95] },
+  GENRE_ELECTRONICA:  { name:'Genre · Electronica',   colors:['#0A0A1F','#00E5FF','#FF1B8D','#6B2DD9'], userStops:[0, 0.35, 0.7, 0.95] },
+  GENRE_HIPHOP:       { name:'Genre · Hip Hop',       colors:['#000000','#FFD700','#6B4226','#4A4A4A'], userStops:[0, 0.4, 0.75, 1.0] },
+  GENRE_HIPHOP_OLD:   { name:'Genre · Hip Hop Old',   colors:['#0D0D0D','#FFD700','#DC143C','#1E90FF'], userStops:[0, 0.35, 0.7, 0.95] },
+  GENRE_RNB:          { name:'Genre · R&B',           colors:['#4B2D5C','#C71585','#D4AF37','#F0E6D2'], userStops:[0, 0.4, 0.7, 0.95] },
+  GENRE_SOUL:         { name:'Genre · Soul',          colors:['#4A2C20','#C9941A','#8B1A1A','#F0E6D2'], userStops:[0, 0.4, 0.7, 0.95] },
+  GENRE_FUNK:         { name:'Genre · Funk',          colors:['#8B00FF','#FF00FF','#39FF14','#FF1493'], userStops:[0, 0.33, 0.66, 1.0] },
+  GENRE_POP:          { name:'Genre · Pop',           colors:['#FF66C4','#FFD93D','#6BE5B5','#66C7FF'], userStops:[0, 0.33, 0.66, 1.0] },
+  GENRE_INDIE_POP:    { name:'Genre · Indie Pop',     colors:['#FFB6B9','#B8E8C8','#FFEC8A','#C8B5E5'], userStops:[0, 0.33, 0.66, 1.0] },
+  GENRE_INDIE:        { name:'Genre · Indie',         colors:['#E5A0A0','#A8C0A0','#F5C5A0','#C8B5E5'], userStops:[0, 0.33, 0.66, 1.0] },
+  GENRE_COUNTRY:      { name:'Genre · Country',       colors:['#E8590C','#4A6FA5','#F0E6D2','#8B6F47'], userStops:[0, 0.35, 0.65, 0.95] },
+  GENRE_FOLK:         { name:'Genre · Folk',          colors:['#4A6741','#A0522D','#F0E6D2','#6B8CAE'], userStops:[0, 0.35, 0.65, 0.95] },
+  GENRE_FOLK_TRAD:    { name:'Genre · Folk Trad',     colors:['#4A6741','#A0522D','#B89A47','#F0E6D2'], userStops:[0, 0.35, 0.65, 0.95] },
+  GENRE_BLUEGRASS:    { name:'Genre · Bluegrass',     colors:['#6B4226','#F0E6D2','#C9A348','#0D0D0D'], userStops:[0, 0.35, 0.7, 0.95] },
+  GENRE_WORLD:        { name:'Genre · World',         colors:['#00A896','#E76F51','#B5179E','#F4A261'], userStops:[0, 0.33, 0.66, 0.95] },
+  GENRE_TROPICAL:     { name:'Genre · Tropical',      colors:['#00C2A8','#FF6B35','#E91E63','#B5E853'], userStops:[0, 0.33, 0.66, 0.95] },
+  GENRE_JAZZ:         { name:'Genre · Jazz',          colors:['#0D0D0D','#C5A547','#F0E6D2','#8B1A1A'], userStops:[0, 0.4, 0.7, 0.95] },
+  GENRE_LUXURY:       { name:'Genre · Luxury',        colors:['#0D0D0D','#D4AF37','#5C0A1A','#E8E0D6'], userStops:[0, 0.4, 0.7, 0.95] },
+  GENRE_SOPHISTICATED:{ name:'Genre · Sophisticated', colors:['#0D0D0D','#C5A547','#E8E0D6','#1A237E'], userStops:[0, 0.4, 0.7, 0.95] },
+  GENRE_CLASSICAL:    { name:'Genre · Classical',     colors:['#F4ECD8','#6B1F1F','#C5A547','#1A237E'], userStops:[0, 0.35, 0.7, 0.95] },
+  GENRE_CLASS_HEROIC: { name:'Genre · Heroic Epic',   colors:['#D4AF37','#8B1A1A','#F4ECD8','#1A237E'], userStops:[0, 0.35, 0.7, 0.95] },
+  GENRE_CLASS_SAD:    { name:'Genre · Sad Classical', colors:['#1B3358','#6B7280','#C8B8D8','#E8E0D6'], userStops:[0, 0.35, 0.7, 0.95] },
+  GENRE_CLASS_ROMANT: { name:'Genre · Romantic',      colors:['#E89BB0','#D4AF37','#F4ECD8','#B07C95'], userStops:[0, 0.35, 0.65, 0.95] },
+  GENRE_CLASS_DRAMA:  { name:'Genre · Dramatic',      colors:['#8B0000','#0D0D0D','#D4AF37','#4B0082'], userStops:[0, 0.35, 0.7, 0.95] },
+  GENRE_DRAMA_ORCH:   { name:'Genre · Orchestral',    colors:['#0A0A0A','#8B0000','#C19A3A','#5C1A1A'], userStops:[0, 0.4, 0.7, 0.95] },
+  GENRE_AMBIENT:      { name:'Genre · Ambient',       colors:['#B8D4DE','#DCA8A8','#EFE8DC','#B8B5AC'], userStops:[0, 0.33, 0.66, 1.0] },
+  GENRE_MEDITATION:   { name:'Genre · Meditation',    colors:['#A8C0A0','#EFE8DC','#B8D4DE','#D8C8E5'], userStops:[0, 0.33, 0.66, 1.0] },
+  GENRE_CALMING:      { name:'Genre · Calming Piano', colors:['#F5C5A0','#E5A0A0','#EFE8DC','#A8C0A0'], userStops:[0, 0.33, 0.66, 1.0] },
+  GENRE_CHILL_ELEC:   { name:'Genre · Chill Elec',    colors:['#2A9D8F','#A8DADC','#C9B7E4','#1D3557'], userStops:[0, 0.35, 0.65, 0.95] },
+  GENRE_FUTURISTIC:   { name:'Genre · Futuristic',    colors:['#C0C0C0','#00FFFF','#8B00FF','#0A1F4D'], userStops:[0, 0.35, 0.7, 0.95] },
+  GENRE_EDGY:         { name:'Genre · Edgy',          colors:['#0D0D0D','#39FF14','#FF1B8D','#00FFFF'], userStops:[0, 0.33, 0.66, 1.0] },
+  GENRE_PRIDE:        { name:'Genre · Pride',         colors:['#E40303','#FF8C00','#008026','#750787'], userStops:[0, 0.33, 0.66, 1.0] },
+  GENRE_SPOOKY:       { name:'Genre · Spooky',        colors:['#0D0D0D','#FF6B00','#3D0F4A','#6B0000'], userStops:[0, 0.35, 0.7, 0.95] },
+  GENRE_NYE:          { name:'Genre · NYE',           colors:['#D4AF37','#F5E6B3','#0A0A0A','#F8F8F8'], userStops:[0, 0.35, 0.7, 0.95] },
+  GENRE_SNOWED_IN:    { name:'Genre · Snowed In',     colors:['#C5E0EB','#F8F8F8','#B8C3CC','#1B2E4B'], userStops:[0, 0.35, 0.7, 0.95] },
+  GENRE_COZY:         { name:'Genre · Cozy/Autumn',   colors:['#A0522D','#F0E6D2','#6B1F1F','#C9A348'], userStops:[0, 0.35, 0.65, 0.95] },
+  GENRE_SUMMERY:      { name:'Genre · Summery',       colors:['#6CCEEB','#FFD93D','#FF6B6B','#FFB084'], userStops:[0, 0.33, 0.66, 0.95] },
+  GENRE_HAPPY:        { name:'Genre · Happy',         colors:['#FFD93D','#FF66C4','#66C7FF','#6BE5B5'], userStops:[0, 0.33, 0.66, 1.0] },
+  GENRE_FUN:          { name:'Genre · Fun/Joyous',    colors:['#FF66C4','#FFD93D','#6BE5B5','#66C7FF'], userStops:[0, 0.33, 0.66, 1.0] },
+  GENRE_BOLD:         { name:'Genre · Bold',          colors:['#DC143C','#0D0D0D','#FFFFFF','#FF4E00'], userStops:[0, 0.4, 0.7, 1.0] },
+  GENRE_CONFIDENT:    { name:'Genre · Confident',     colors:['#F1BE4F','#0D0D0D','#1B3358','#D4AF37'], userStops:[0, 0.35, 0.7, 1.0] },
+  GENRE_DETERMINED:   { name:'Genre · Determined',    colors:['#C9302C','#FFB81C','#0D0D0D','#FF6B00'], userStops:[0, 0.35, 0.7, 0.95] },
+  GENRE_IMAGINATIVE:  { name:'Genre · Imaginative',   colors:['#4B0082','#C71585','#40E0D0','#FFD700'], userStops:[0, 0.33, 0.66, 0.95] },
+  GENRE_REFLECTIVE:   { name:'Genre · Reflective',    colors:['#6B8CAE','#B8B5AC','#EFE8DC','#C8B8D8'], userStops:[0, 0.33, 0.66, 1.0] },
+  GENRE_WOMEN_MUSIC:  { name:'Genre · Women in Music',colors:['#E91E63','#FFD700','#6B2DD9','#FF7F66'], userStops:[0, 0.33, 0.66, 0.95] },
+  GENRE_SOULFUL:      { name:'Genre · Soulful',       colors:['#4B2D5C','#C9941A','#C97F8A','#F0E6D2'], userStops:[0, 0.35, 0.7, 0.95] },
+  GENRE_ACOUSTIC:     { name:'Genre · Acoustic',      colors:['#C9A87C','#E8A045','#F0E6D2','#5C3A21'], userStops:[0, 0.35, 0.7, 0.95] },
+  GENRE_INNOVATIVE:   { name:'Genre · Innovative',    colors:['#00B4D8','#06FFA5','#6B2DD9','#F8F8F8'], userStops:[0, 0.35, 0.7, 1.0] },
+  GENRE_ENTERPRISE:   { name:'Genre · Enterprise',    colors:['#1B3358','#FFFFFF','#FF4E00','#86888A'], userStops:[0, 0.35, 0.65, 1.0] },
+};
+// Load any saved custom palettes (multiple supported)
+try {
+  const saved = JSON.parse(localStorage.getItem('mm-custom-palettes') || '[]');
+  if (Array.isArray(saved)) {
+    saved.forEach((p, i) => {
+      if (p && p.colors && p.colors.length === 4) {
+        const key = 'CUSTOM_' + (p.id || Date.now() + '_' + i);
+        PALETTES[key] = {
+          name: p.name || `Custom ${i+1}`,
+          colors: p.colors.slice(),
+          userStops: (p.stops && p.stops.length === 4) ? p.stops.slice() : [0, 0.33, 0.66, 1],
+          custom: true,
+        };
+      }
+    });
+  }
+  // Migration: if old single-custom exists, import it
+  const legacy = JSON.parse(localStorage.getItem('mm-custom-palette') || 'null');
+  if (legacy && legacy.colors && !saved.length) {
+    PALETTES['CUSTOM_' + Date.now()] = {
+      name: 'Custom 1',
+      colors: legacy.colors.slice(),
+      userStops: (legacy.stops || [0, 0.33, 0.66, 1]).slice(),
+      custom: true,
+    };
+    localStorage.removeItem('mm-custom-palette');
+  }
+} catch(e) {}
+
+function saveCustomPalettes(){
+  try {
+    const out = Object.entries(PALETTES)
+      .filter(([k, p]) => p.custom)
+      .map(([k, p]) => ({ id: k.replace('CUSTOM_', ''), name: p.name, colors: p.colors, stops: p.userStops }));
+    localStorage.setItem('mm-custom-palettes', JSON.stringify(out));
+  } catch(e) {}
+}
+function addCustomPalette(){
+  const key = 'CUSTOM_' + Date.now();
+  const count = Object.values(PALETTES).filter(p => p.custom).length + 1;
+  PALETTES[key] = {
+    name: `Custom ${count}`,
+    colors: ["#FF4E00","#FFFFFF","#000000","#CCCCCC"],
+    userStops: [0, 0.33, 0.66, 1],
+    custom: true,
+  };
+  selectedPaletteKey = key;
+  saveCustomPalettes();
+  buildPaletteList();
+  buildCustomEditor();
+  qs('customPaletteEdit').style.display = 'block';
+}
+function deleteCustomPalette(key){
+  if(!PALETTES[key] || !PALETTES[key].custom) return;
+  delete PALETTES[key];
+  if(selectedPaletteKey === key){
+    selectedPaletteKey = 'ENERGIZED';
+    qs('customPaletteEdit').style.display = 'none';
+  }
+  saveCustomPalettes();
+  buildPaletteList();
+  buildCustomEditor();
+  if(!animateEl.checked) renderPasses();
+}
+function evenStops(n){ return Array.from({length:n}, (_, i) => i/(n-1)); }
+function hexToLinearRGB(hex){
+  const h = hex.replace('#','');
+  const r = parseInt(h.slice(0,2),16)/255;
+  const g = parseInt(h.slice(2,4),16)/255;
+  const b = parseInt(h.slice(4,6),16)/255;
+  const srgb = v => v <= 0.04045 ? v/12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  return [srgb(r), srgb(g), srgb(b)];
+}
+
+/* ==================== DOM ==================== */
+const qs = id => document.getElementById(id);
+const statusEl = qs('status'), drop = qs('drop'),
+  fileInput = qs('file'), browse = qs('browse'), runBtn = qs('run'),
+  srcPreview = qs('srcPreview'), depthCv = qs('depthCv'),
+  shiversCv = qs('shiversCv'), outCv = qs('outCv'),
+  animateEl = qs('animate'), stopsMode = qs('stopsMode'),
+  aiBtn = qs('aiGen');
+
+const sliders = {
+  ox:qs('s_ox'), oy:qs('s_oy'), freq:qs('s_freq'), speed:qs('s_speed'),
+  power:qs('s_power'), dist:qs('s_dist'),
+  displ:qs('s_displ'), dalpha:qs('s_dalpha'), dbmin:qs('s_dbmin'), dbmax:qs('s_dbmax'), dsoft:qs('s_dsoft'),
+  lum:qs('s_lum'), alpha:qs('s_alpha'),
+  lbmin:qs('s_lbmin'), lbmax:qs('s_lbmax'), lbsoft:qs('s_lbsoft'), blur:qs('s_blur'), iters:qs('s_iters'),
+  cfreq:qs('s_cfreq'), cspeed:qs('s_cspeed'),
+  wfreq:qs('s_wfreq'), wspeed:qs('s_wspeed'), wpow:qs('s_wpow'), wamp:qs('s_wamp'),
+  noise:qs('s_noise'),
+};
+const vals = {};
+for (const k of Object.keys(sliders)) vals[k] = qs('v_'+k);
+function fmt(v, step){
+  const decimals = (step+'').indexOf('.') >= 0 ? (step+'').split('.')[1].length : 0;
+  return (+v).toFixed(decimals);
+}
+function setStatus(msg, kind=''){
+  statusEl.textContent = '';
+  statusEl.appendChild(document.createTextNode(msg));
+  const bar = document.createElement('div'); bar.className = 'bar';
+  bar.innerHTML = '<div class="fill" id="bar"></div>';
+  statusEl.appendChild(bar);
+  statusEl.className = 'status ' + kind;
+}
+function setProgress(p){ const f = document.getElementById('bar'); if(f) f.style.width = Math.max(0,Math.min(100,p)) + '%'; }
+
+/* ==================== STATE ==================== */
+let currentURL = null, currentFile = null, depthEstimator = null;
+let selectedPaletteKey = 'ENERGIZED';
+let selectedPattern = 'SHIVERS';
+let videoEl = qs('srcVideo');
+let videoMode = false;
+let videoFrameCanvas = null, videoFrameCtx = null;
+// Manual time from the Frame slider — used as the snapshot time when
+// Animate is OFF, and as an additive offset when Animate is ON.
+let manualTime = 0;
+function currentRenderTime(){
+  return animateEl.checked ? (performance.now()/1000 + manualTime) : manualTime;
+}
+
+/* ==================== THEME ==================== */
+const themeBtn = qs('themeToggle');
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  themeBtn.textContent = t === 'dark' ? '◐' : '◑';
+  try { localStorage.setItem('mm-theme', t); } catch(e) {}
+}
+themeBtn.addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  setTheme(cur === 'dark' ? 'light' : 'dark');
+});
+(function initTheme(){
+  let t = 'dark';
+  try { t = localStorage.getItem('mm-theme') || 'dark'; } catch(e) {}
+  setTheme(t);
+})();
+
+/* ==================== PALETTE LIST ==================== */
+// Core palettes shown in the visible list. Everything else (genre / brand / mood
+// presets / user customs) is condensed into the "More palettes…" dropdown.
+const CORE_PALETTE_KEYS = ['ENERGIZED','INSPIRED','OVERJOYED','REFLECTIVE','ASSURED','FERVOR','INQUISITIVE','FOCUSED','SERENITY'];
+function isCorePalette(key, p){
+  if(CORE_PALETTE_KEYS.includes(key)) return true;
+  // Custom palettes stay visible if they're the active one (so user can edit)
+  if(p.custom && key === selectedPaletteKey) return true;
+  // Generated keyword palettes stay visible (they're transient and the user just typed them)
+  if(p.generated) return true;
+  return false;
+}
+function buildPaletteList(){
+  const list = qs('paletteList');
+  list.innerHTML = '';
+  // Populate the "More palettes…" dropdown with non-core entries
+  const more = qs('paletteMore');
+  if(more){
+    more.innerHTML = '<option value="">More palettes…</option>';
+    const groups = { 'Mood': [], 'Genre': [], 'Brand': [], 'Custom': [] };
+    Object.entries(PALETTES).forEach(([key, p]) => {
+      if(isCorePalette(key, p)) return;
+      if(p.custom)              groups.Custom.push([key, p]);
+      else if(key.startsWith('GENRE_')) groups.Genre.push([key, p]);
+      else if(key.startsWith('BRAND_')) groups.Brand.push([key, p]);
+      else                       groups.Mood.push([key, p]);
+    });
+    Object.entries(groups).forEach(([g, items]) => {
+      if(!items.length) return;
+      const og = document.createElement('optgroup');
+      og.label = g;
+      items.forEach(([key, p]) => {
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = p.name;
+        if(key === selectedPaletteKey) opt.selected = true;
+        og.appendChild(opt);
+      });
+      more.appendChild(og);
+    });
+  }
+  Object.entries(PALETTES).filter(([key, p]) => isCorePalette(key, p)).forEach(([key, p]) => {
+    const el = document.createElement('div');
+    el.className = 'palette-item' + (key === selectedPaletteKey ? ' active' : '');
+    el.dataset.key = key;
+    el.innerHTML = `
+      <div class="palette-swatches">
+        ${p.colors.map(c => `<div class="sw" style="background:${c}"></div>`).join('')}
+      </div>
+      <div class="palette-name">${p.name}</div>
+      <span class="check-mark">✓</span>
+      ${p.custom ? `<button class="palette-del" data-key="${key}" title="Delete">×</button>` : ''}
+    `;
+    el.addEventListener('click', e => {
+      if(e.target.classList.contains('palette-del')) return;
+      selectedPaletteKey = key;
+      [...list.children].forEach(c => c.classList.remove('active'));
+      el.classList.add('active');
+      qs('customPaletteEdit').style.display = p.custom ? 'block' : 'none';
+      buildCustomEditor();
+      if(!animateEl.checked) renderPasses();
+    });
+    const delBtn = el.querySelector('.palette-del');
+    if(delBtn) delBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      if(confirm(`Delete "${p.name}"?`)) deleteCustomPalette(key);
+    });
+    list.appendChild(el);
+  });
+  // + Add custom button
+  const addBtn = document.createElement('button');
+  addBtn.className = 'btn sm';
+  addBtn.style.marginTop = '4px';
+  addBtn.textContent = '+ New Custom Palette';
+  addBtn.addEventListener('click', addCustomPalette);
+  list.appendChild(addBtn);
+}
+buildPaletteList();
+// "More palettes…" dropdown — picking activates that palette (and surfaces it in
+// the visible list temporarily so the user can see what's active)
+qs('paletteMore')?.addEventListener('change', function(){
+  const key = this.value;
+  if(!key || !PALETTES[key]) return;
+  selectedPaletteKey = key;
+  qs('customPaletteEdit').style.display = PALETTES[key].custom ? 'block' : 'none';
+  buildCustomEditor();
+  buildPaletteList();
+  if(!animateEl.checked) renderPasses();
+  this.value = '';
+});
+
+/* ==================== CUSTOM PALETTE EDITOR ==================== */
+function buildCustomEditor(){
+  const wrap = qs('customColorRows');
+  const nameInput = qs('customName');
+  wrap.innerHTML = '';
+  const active = PALETTES[selectedPaletteKey];
+  if(!active || !active.custom){
+    nameInput.value = '';
+    return;
+  }
+  nameInput.value = active.name;
+  active.colors.forEach((c, idx) => {
+    const row = document.createElement('div');
+    row.className = 'custom-row';
+    row.innerHTML = `
+      <input type="color" value="${c}" data-idx="${idx}" class="cc-swatch"/>
+      <input type="text" value="${c.toUpperCase()}" data-idx="${idx}" class="cc-hex" maxlength="7" spellcheck="false"/>
+      <input type="range" min="0" max="1" step="0.01" value="${active.userStops[idx]}" data-idx="${idx}"/>
+      <span class="stopval">${active.userStops[idx].toFixed(2)}</span>
+    `;
+    const swatch = row.querySelector('.cc-swatch');
+    const hexIn  = row.querySelector('.cc-hex');
+    swatch.addEventListener('input', function(){
+      active.colors[parseInt(this.dataset.idx)] = this.value;
+      hexIn.value = this.value.toUpperCase();
+      buildPaletteList();
+      saveCustomPalettes();
+      if(!animateEl.checked) renderPasses();
+    });
+    hexIn.addEventListener('change', function(){
+      let v = this.value.trim();
+      if(v.length === 6 && /^[0-9a-f]{6}$/i.test(v)) v = '#' + v;
+      if(/^#[0-9a-f]{6}$/i.test(v)){
+        active.colors[parseInt(this.dataset.idx)] = v;
+        swatch.value = v;
+        this.value = v.toUpperCase();
+        buildPaletteList();
+        saveCustomPalettes();
+        if(!animateEl.checked) renderPasses();
+      } else {
+        this.value = active.colors[parseInt(this.dataset.idx)].toUpperCase();
+      }
+    });
+    row.querySelector('input[type=range]').addEventListener('input', function(){
+      const i = parseInt(this.dataset.idx);
+      active.userStops[i] = parseFloat(this.value);
+      row.querySelector('.stopval').textContent = (+this.value).toFixed(2);
+      saveCustomPalettes();
+      if(!animateEl.checked) renderPasses();
+    });
+    wrap.appendChild(row);
+  });
+}
+buildCustomEditor();
+qs('customName').addEventListener('input', function(){
+  const active = PALETTES[selectedPaletteKey];
+  if(!active || !active.custom) return;
+  active.name = this.value || 'Untitled';
+  saveCustomPalettes();
+  buildPaletteList();
+});
+
+/* ==================== ORIGIN PAD ==================== */
+const originPad = qs('originPad'), originIndicator = qs('originIndicator');
+function syncOriginIndicator(){
+  // Slider range is -1..2 → clamp + map to 0..100% on pad
+  const ox = parseFloat(sliders.ox.value), oy = parseFloat(sliders.oy.value);
+  const px = ((ox - (-1)) / 3) * 100;
+  const py = ((oy - (-1)) / 3) * 100;
+  originIndicator.style.left = Math.max(0, Math.min(100, px)) + '%';
+  originIndicator.style.top = Math.max(0, Math.min(100, py)) + '%';
+}
+let padDragging = false;
+function setOriginFromEvent(e){
+  const r = originPad.getBoundingClientRect();
+  const x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+  const y = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
+  // Map 0..1 → -1..2
+  const ox = x * 3 - 1, oy = y * 3 - 1;
+  sliders.ox.value = ox.toFixed(2); vals.ox.textContent = ox.toFixed(2);
+  sliders.oy.value = oy.toFixed(2); vals.oy.textContent = oy.toFixed(2);
+  syncOriginIndicator();
+  if(!animateEl.checked) renderPasses();
+}
+originPad.addEventListener('mousedown', e => { padDragging = true; setOriginFromEvent(e); });
+window.addEventListener('mousemove', e => { if(padDragging) setOriginFromEvent(e); });
+window.addEventListener('mouseup', () => { padDragging = false; });
+originPad.addEventListener('touchstart', e => { padDragging = true; setOriginFromEvent(e.touches[0]); e.preventDefault(); }, {passive:false});
+window.addEventListener('touchmove', e => { if(padDragging) setOriginFromEvent(e.touches[0]); });
+window.addEventListener('touchend', () => { padDragging = false; });
+syncOriginIndicator();
+
+/* ==================== PATTERN PICKER ==================== */
+qs('patternGrid').addEventListener('click', e => {
+  const btn = e.target.closest('.pattern-btn');
+  if(!btn) return;
+  selectedPattern = btn.dataset.pattern;
+  [...qs('patternGrid').children].forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if(!animateEl.checked) renderPasses();
+});
+
+/* ==================== INPUT ==================== */
+function loadFile(file){
+  if(!file) return;
+  currentFile = file;
+  if(currentURL) URL.revokeObjectURL(currentURL);
+  currentURL = URL.createObjectURL(file);
+  if(file.type.startsWith('video/')){
+    videoMode = true;
+    videoEl.src = currentURL;
+    videoEl.onloadedmetadata = () => {
+      videoEl.play().catch(()=>{});
+      const dur = isFinite(videoEl.duration) ? videoEl.duration : 30;
+      window.__videoDuration = dur;
+      qs('trimStart').value = '0';
+      qs('trimEnd').value   = dur.toFixed(2);
+      qs('v_trimS').textContent = '0.0s';
+      qs('v_trimE').textContent = dur.toFixed(1) + 's';
+      qs('videoTrim').style.display = 'flex';
+      // Wait two frames so the layout has settled — trim.clientWidth was 0 if we
+      // call updateQtTrimUI() immediately after toggling display
+      requestAnimationFrame(() => requestAnimationFrame(updateQtTrimUI));
+      setStatus(`Video ${videoEl.videoWidth}×${videoEl.videoHeight} · ${dur.toFixed(1)}s · B&W depth live`, 'ok');
+      startVideoDepthLoop();
+    };
+    return;
+  }
+  // Image path
+  videoMode = false;
+  stopVideoDepthLoop();
+  const tr = qs('videoTrim'); if(tr) tr.style.display = 'none';
+  srcPreview.onload = () => {
+    setStatus(`${file.name || 'image'} · ${srcPreview.naturalWidth}×${srcPreview.naturalHeight} · running depth…`, '');
+    runBtn.click();
+  };
+  srcPreview.src = currentURL;
+}
+drop.addEventListener('click', e => { if(e.target.id !== 'browse') fileInput.click(); });
+browse.addEventListener('click', e => { e.stopPropagation(); fileInput.click(); });
+fileInput.addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if(f) loadFile(f); });
+['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('drag'); }));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('drag'); }));
+drop.addEventListener('drop', e => { const f = e.dataTransfer.files && e.dataTransfer.files[0]; if(f) loadFile(f); });
+
+/* ==================== VIDEO → CHEAT DEPTH ==================== */
+// Real Depth-Anything inference is far too slow per-frame. Instead we
+// derive a fast pseudo-depth that runs at 60fps:
+//   1. luminance per pixel
+//   2. invert (so bright regions don't read as foreground)
+//   3. apply Sobel edge magnitude — adds structural contrast around shapes
+//   4. S-curve contrast → push mid-tones to extremes
+// The pattern shader then overlays its own shapes, obscuring the source
+// further so the output reads as a textured artwork rather than a video.
+let videoLoopHandle = null;
+function _cheatDepthFromFrame(rgba, w, h){
+  // Pure B&W luminance → 3×3 box blur → contrast S-curve.
+  // No Sobel / inversion — just clean greyscale tuned to look more like
+  // a real depth map: smooth, high-contrast, mid-tones pushed outward.
+  const N = w * h;
+  const lum = new Float32Array(N);
+  for(let i=0, j=0; i<N; i++, j+=4){
+    lum[i] = (rgba[j]*0.299 + rgba[j+1]*0.587 + rgba[j+2]*0.114) / 255;
+  }
+  // Two passes of 3×3 box blur (~5×5 effective kernel) for smoothness
+  const blur = new Float32Array(N);
+  for(let pass=0; pass<2; pass++){
+    const src = (pass === 0) ? lum : blur;
+    const dst = (pass === 0) ? blur : lum; // ping-pong via lum on 2nd pass
+    for(let y=0; y<h; y++){
+      const yU = y > 0 ? y-1 : y;
+      const yD = y < h-1 ? y+1 : y;
+      for(let x=0; x<w; x++){
+        const xL = x > 0 ? x-1 : x;
+        const xR = x < w-1 ? x+1 : x;
+        const s = src[yU*w + xL] + src[yU*w + x] + src[yU*w + xR]
+                + src[y*w + xL]  + src[y*w + x]  + src[y*w + xR]
+                + src[yD*w + xL] + src[yD*w + x] + src[yD*w + xR];
+        dst[y*w + x] = s / 9;
+      }
+    }
+  }
+  // Contrast S-curve (smoothstep applied twice for stronger push)
+  const gray = new Uint8Array(N);
+  for(let i=0; i<N; i++){
+    let v = lum[i]; // final ping-pong landed back in lum
+    v = Math.max(0, Math.min(1, v));
+    v = v * v * (3 - 2*v);
+    v = v * v * (3 - 2*v);
+    gray[i] = (v * 255) | 0;
+  }
+  return gray;
+}
+function startVideoDepthLoop(){
+  if(!videoFrameCanvas){
+    videoFrameCanvas = document.createElement('canvas');
+    videoFrameCtx = videoFrameCanvas.getContext('2d', { willReadFrequently: true });
+  }
+  function step(){
+    if(!videoMode) return;
+    // Enforce trim window — loop back to start when crossing the end
+    const ts0 = parseFloat(qs('trimStart')?.value || '0');
+    const te0 = parseFloat(qs('trimEnd')?.value   || String(videoEl.duration || 30));
+    if(videoEl.currentTime < ts0 || videoEl.currentTime > te0){
+      try { videoEl.currentTime = ts0; } catch(e){}
+    }
+    if(videoEl.readyState >= 2){
+      // Heavily downsampled for speed — depth map at 320×W aspect
+      const maxDim = 320;
+      const scale = Math.min(1, maxDim / Math.max(videoEl.videoWidth, videoEl.videoHeight));
+      const w = Math.max(1, Math.floor(videoEl.videoWidth * scale));
+      const h = Math.max(1, Math.floor(videoEl.videoHeight * scale));
+      if(videoFrameCanvas.width !== w) videoFrameCanvas.width = w;
+      if(videoFrameCanvas.height !== h) videoFrameCanvas.height = h;
+      videoFrameCtx.drawImage(videoEl, 0, 0, w, h);
+      const img = videoFrameCtx.getImageData(0, 0, w, h);
+      const gray = _cheatDepthFromFrame(img.data, w, h);
+      depthRaw = gray;
+      if(!gl) initGL();
+      storeOriginalDepth(gray, w, h);
+      uploadDepthCovering(gray, w, h);
+    }
+    videoLoopHandle = requestAnimationFrame(step);
+  }
+  videoLoopHandle = requestAnimationFrame(step);
+}
+function stopVideoDepthLoop(){
+  if(videoLoopHandle){ cancelAnimationFrame(videoLoopHandle); videoLoopHandle = null; }
+  try { videoEl.pause(); } catch(e){}
+}
+/* ==================== QUICKTIME-STYLE TRIM UI ==================== */
+function updateQtTrimUI(){
+  const trim = qs('qtTrim'); if(!trim) return;
+  const dur = window.__videoDuration || 1;
+  const s = parseFloat(qs('trimStart').value || '0');
+  const e = parseFloat(qs('trimEnd').value   || String(dur));
+  const sel = qs('qtSel');
+  const ph = qs('qtPlayhead');
+  const W = trim.clientWidth || 1;
+  const left = Math.max(0, (s / dur) * W);
+  const right = Math.min(W, (e / dur) * W);
+  sel.style.left  = left + 'px';
+  sel.style.width = Math.max(0, right - left) + 'px';
+  // Playhead
+  const t = videoEl?.currentTime || 0;
+  ph.style.left = ((t / dur) * W) + 'px';
+  qs('v_trimS').textContent = s.toFixed(1) + 's';
+  qs('v_trimE').textContent = e.toFixed(1) + 's';
+  const tot = qs('v_totalLen'); if(tot) tot.textContent = dur.toFixed(1) + 's';
+  const crp = qs('v_cropLen');  if(crp) crp.textContent = Math.max(0, e - s).toFixed(1) + 's';
+  const cur = qs('v_curTime');  if(cur) cur.textContent = (videoEl?.currentTime || 0).toFixed(1) + 's';
+}
+function _attachQtTrimDrag(){
+  const trim = qs('qtTrim'); if(!trim) return;
+  let dragging = null; // 'start' | 'end' | 'selection' | 'scrub'
+  let dragOffset = 0;
+  function ptToTime(clientX){
+    const r = trim.getBoundingClientRect();
+    const t = Math.max(0, Math.min(1, (clientX - r.left) / r.width)) * (window.__videoDuration || 1);
+    return t;
+  }
+  trim.addEventListener('mousedown', e => {
+    if(!window.__videoDuration) return;
+    const handle = e.target.closest('.qt-handle');
+    const sel = e.target.closest('.qt-selection');
+    if(handle){
+      dragging = handle.dataset.side; // 'start' or 'end'
+    } else if(sel){
+      dragging = 'selection';
+      const r = sel.getBoundingClientRect();
+      dragOffset = e.clientX - r.left;
+    } else {
+      // Bare strip click → scrub playhead
+      dragging = 'scrub';
+      const t = ptToTime(e.clientX);
+      try { videoEl.currentTime = t; } catch(_){}
+    }
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', e => {
+    if(!dragging) return;
+    const dur = window.__videoDuration || 1;
+    const t = ptToTime(e.clientX);
+    let s = parseFloat(qs('trimStart').value);
+    let ee = parseFloat(qs('trimEnd').value);
+    if(dragging === 'start'){
+      s = Math.min(t, ee - 0.05);
+      qs('trimStart').value = Math.max(0, s).toFixed(2);
+    } else if(dragging === 'end'){
+      ee = Math.max(t, s + 0.05);
+      qs('trimEnd').value = Math.min(dur, ee).toFixed(2);
+    } else if(dragging === 'selection'){
+      const trimRect = trim.getBoundingClientRect();
+      const newStartPx = e.clientX - trimRect.left - dragOffset;
+      const newStart = (newStartPx / trimRect.width) * dur;
+      const len = ee - s;
+      const clampedStart = Math.max(0, Math.min(dur - len, newStart));
+      qs('trimStart').value = clampedStart.toFixed(2);
+      qs('trimEnd').value = (clampedStart + len).toFixed(2);
+    } else if(dragging === 'scrub'){
+      try { videoEl.currentTime = t; } catch(_){}
+    }
+    updateQtTrimUI();
+  });
+  window.addEventListener('mouseup', () => { dragging = null; });
+  // Update playhead + current-time label on rAF while video plays
+  function playheadLoop(){
+    if(videoMode && window.__videoDuration){
+      const ph = qs('qtPlayhead');
+      const W = trim.clientWidth || 1;
+      ph.style.left = ((videoEl.currentTime / window.__videoDuration) * W) + 'px';
+      const cur = qs('v_curTime'); if(cur) cur.textContent = videoEl.currentTime.toFixed(1) + 's';
+    }
+    requestAnimationFrame(playheadLoop);
+  }
+  requestAnimationFrame(playheadLoop);
+  window.addEventListener('resize', updateQtTrimUI);
+}
+_attachQtTrimDrag();
+
+// Play / pause button for the trim preview — toggles srcVideo playback
+qs('trimPlayPause')?.addEventListener('click', () => {
+  if(!videoMode) return;
+  if(videoEl.paused){ videoEl.play().catch(()=>{}); qs('trimPlayPause').textContent = '❚❚'; }
+  else              { videoEl.pause();             qs('trimPlayPause').textContent = '▶';   }
+});
+// Keep the button label in sync with native play/pause events too
+videoEl.addEventListener('play',  () => { const b = qs('trimPlayPause'); if(b) b.textContent = '❚❚'; });
+videoEl.addEventListener('pause', () => { const b = qs('trimPlayPause'); if(b) b.textContent = '▶'; });
+
+/* ==================== AI IMAGE GENERATOR ==================== */
+/* ==================== KEYWORD / MOOD MAPPER ==================== */
+// Maps emotion / music words → palette + pattern + AI prompt suffix.
+// Order matters: first match wins. Keep words lowercase.
+const MOOD_MAP = [
+  // [matchTerms, paletteKey, pattern, aiSuffix]
+  { terms:['calm','serene','peaceful','ambient','chill','meditative','still','soft','quiet','lullaby'],
+    palette:'SERENITY', pattern:'DILATING', suffix:'soft cloudy serene pastel haze' },
+  { terms:['energetic','energy','intense','fast','rave','edm','dance','techno','hyper','electric','pulse','adrenaline'],
+    palette:'ENERGIZED', pattern:'SHIVERS', suffix:'high contrast electric energy ripple' },
+  { terms:['dark','brooding','heavy','metal','grunge','dread','sinister','ominous','gothic','shadow','noir'],
+    palette:'REFLECTIVE', pattern:'HAIRS', suffix:'deep shadow brooding chiaroscuro' },
+  { terms:['romantic','romance','intimate','love','tender','sensual','warm','blush'],
+    palette:'FERVOR', pattern:'GOOSEBUMPS', suffix:'soft warm romantic glow' },
+  { terms:['focused','sharp','clear','classical','precise','minimal','clean','crisp'],
+    palette:'FOCUSED', pattern:'SHIVERS', suffix:'minimal precise sharp linework' },
+  { terms:['curious','mysterious','exploration','dream','dreamy','strange','wonder','space','cosmic'],
+    palette:'INQUISITIVE', pattern:'DILATING', suffix:'cosmic nebula mystery deep colours' },
+  { terms:['joyful','upbeat','happy','pop','sunny','bright','playful','cheerful','party'],
+    palette:'OVERJOYED', pattern:'GOOSEBUMPS', suffix:'bright playful sunshine joyful palette' },
+  { terms:['inspired','inspiring','ethereal','spiritual','majestic','awe','divine','transcendent'],
+    palette:'INSPIRED', pattern:'DILATING', suffix:'ethereal transcendent inspiring glow' },
+  { terms:['assured','confident','mature','grown','poised','sophisticated','elegant','jazz','blues','soul','classy'],
+    palette:'ASSURED', pattern:'HAIRS', suffix:'sophisticated elegant jazz mood' },
+  { terms:['fervor','passionate','fierce','bold','red','fire','flame','burning','rage','urgent'],
+    palette:'FERVOR', pattern:'SHIVERS', suffix:'fierce passionate burning intensity' },
+  { terms:['melancholy','sad','blue','wistful','nostalgic','lonely','rain','tears','grief'],
+    palette:'REFLECTIVE', pattern:'DILATING', suffix:'melancholy rain wistful mood' },
+  { terms:['euphoric','ecstatic','transcendent','rave','high','rush'],
+    palette:'OVERJOYED', pattern:'GOOSEBUMPS', suffix:'euphoric ecstatic rush vivid' },
+  { terms:['hip','hop','hip-hop','urban','street','grit','bass'],
+    palette:'ASSURED', pattern:'GOOSEBUMPS', suffix:'urban gritty bass texture' },
+  { terms:['folk','organic','natural','wood','earth','forest','rustic'],
+    palette:'INSPIRED', pattern:'HAIRS', suffix:'natural organic earth tones forest' },
+  { terms:['indie','alternative','dreampop','shoegaze'],
+    palette:'INQUISITIVE', pattern:'GOOSEBUMPS', suffix:'dreamy hazy indie shoegaze aesthetic' },
+];
+function resolveMood(text){
+  const t = (text || '').toLowerCase().trim();
+  if(!t) return null;
+  for(const m of MOOD_MAP){
+    if(m.terms.some(term => t.includes(term))) return m;
+  }
+  return null;
+}
+
+const AI_PROMPTS = [
+  "abstract swirling cosmic nebula high contrast",
+  "flowing liquid metal surface iridescent",
+  "deep organic biological cellular structure",
+  "topographic contour map of an unknown terrain",
+  "marble stone texture dramatic lighting",
+  "dense fractal geological rock strata",
+  "alien landscape silhouette at dusk",
+  "macro photograph of paint mixing",
+  "3d render of flowing silk fabric folds",
+  "smoke and ink in water ultra detailed",
+  "crystal growth formation close up",
+  "aerial photo of mountain ridges in shadow",
+  "wet glass refraction abstract",
+  "sand dune pattern high contrast monochrome",
+  "mineral slice microscopy rich texture"
+];
+function buildPrompt(){
+  // For Loremflickr we use comma-separated tags. Mix keyword tags + a random style anchor.
+  const keyword = qs('moodInput').value.trim().toLowerCase();
+  const baseTags = ['abstract','texture','organic','macro','pattern','geological','clouds','smoke','marble','ink','flora','crystal'];
+  const pickRandom = (n) => Array.from({length:n}, () => baseTags[Math.floor(Math.random()*baseTags.length)]);
+  if(keyword){
+    // Sanitize keyword for URL tags (alphanumeric only)
+    const safe = keyword.replace(/[^a-z0-9, ]/gi,'').replace(/\s+/g,',').split(',').filter(Boolean).slice(0,3);
+    const extra = pickRandom(2);
+    return [...safe, ...extra].join(',');
+  }
+  return pickRandom(3).join(',');
+}
+function aiImageUrl(tags, seed){
+  // Loremflickr: real photos by keyword tag, no auth required, instant
+  // Honour the current output size's aspect so landscape/portrait presets
+  // get a matching photo instead of a stretched square.
+  const preset = qs('sizePreset')?.value || 'native';
+  let w = 512, h = 512;
+  if(preset !== 'native'){
+    const [pw, ph] = preset.split('x').map(Number);
+    const aspect = pw / ph;
+    if(aspect >= 1){ w = 640; h = Math.round(640 / aspect); }
+    else            { h = 640; w = Math.round(640 * aspect); }
+  }
+  return `https://loremflickr.com/${w}/${h}/${encodeURIComponent(tags)}?lock=${seed}`;
+}
+async function generateAiImage(){
+  const prompt = buildPrompt();
+  const seed = Math.floor(Math.random() * 999999);
+  const url = aiImageUrl(prompt, seed);
+  const label = qs('aiGenLabel');
+  aiBtn.disabled = true;
+  label.innerHTML = '<span class="ai-loading"></span> Generating…';
+  setStatus(`AI: "${prompt}"`, '');
+  // Warm the depth model in parallel while AI image is generating
+  ensureModel().catch(()=>{});
+  try {
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('AI gen failed: ' + res.status);
+    const blob = await res.blob();
+    const file = new File([blob], `ai-${seed}.jpg`, { type: blob.type || 'image/jpeg' });
+    loadFile(file); // auto-runs depth inference via loadFile
+  } catch(err){
+    setStatus('AI error: ' + (err.message || err), 'err');
+  } finally {
+    aiBtn.disabled = false;
+    label.textContent = '✦ AI Generate';
+  }
+}
+aiBtn.addEventListener('click', generateAiImage);
+
+/* ==================== PROCEDURAL PALETTE / CONTROLS FROM KEYWORD ==================== */
+// Deterministic hash → seeded RNG → unique palette + controls per keyword
+function hashKeyword(s){
+  let h = 2166136261;
+  for(let i=0;i<s.length;i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
+function mulberry32(a){
+  return () => {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function hslToHex(h, s, l){
+  h = ((h % 360) + 360) % 360; s /= 100; l /= 100;
+  const c = (1 - Math.abs(2*l - 1)) * s;
+  const x = c * (1 - Math.abs((h/60) % 2 - 1));
+  const m = l - c/2;
+  let r=0, g=0, b=0;
+  if(h < 60){ r=c; g=x; }
+  else if(h < 120){ r=x; g=c; }
+  else if(h < 180){ g=c; b=x; }
+  else if(h < 240){ g=x; b=c; }
+  else if(h < 300){ r=x; b=c; }
+  else { r=c; b=x; }
+  const toHex = v => Math.round((v + m) * 255).toString(16).padStart(2, '0');
+  return '#' + toHex(r) + toHex(g) + toHex(b);
+}
+// Map semantic word → base hue (degrees)
+const HUE_HINTS = [
+  [['red','fire','flame','rage','passion','heat','burn','blood','urgent','crimson'],            5],
+  [['orange','sunset','warm','autumn','amber','copper','ember','rust'],                          25],
+  [['yellow','sun','joy','gold','bright','citrus','sunshine','radiant'],                         52],
+  [['lime','spring','fresh','vibrant','acid','neon'],                                            85],
+  [['green','forest','nature','grow','organic','earth','jungle','moss','herbal'],                130],
+  [['teal','aqua','mint','sea','coast','tide'],                                                  175],
+  [['cyan','ice','glacial','frost','clear','crystal'],                                           190],
+  [['blue','ocean','sky','calm','cool','sad','melancholy','rain','tear','wave','deep'],          215],
+  [['indigo','night','dusk','twilight','royal','dream'],                                         245],
+  [['purple','mystic','spiritual','royal','ethereal','magic','arcane','violet','lavender'],      275],
+  [['pink','love','romance','blush','tender','soft','candy','floral','rose'],                    330],
+  [['mono','grey','noir','minimal','smoke','ash','steel','concrete'],                            210],
+];
+function inferHue(keyword, rnd){
+  const lower = keyword.toLowerCase();
+  for(const [words, hue] of HUE_HINTS){
+    if(words.some(w => lower.includes(w))) return hue + (rnd() - 0.5) * 18;
+  }
+  // No hue hint → pick deterministically from keyword
+  return rnd() * 360;
+}
+function inferTone(keyword, rnd){
+  const lower = keyword.toLowerCase();
+  // 'dark','heavy','noir' → low light; 'bright','pastel','soft' → high light
+  if(/dark|heavy|noir|night|deep|brood|gloom|shadow|gothic|raw/.test(lower)) return 'dark';
+  if(/bright|pastel|soft|tender|dream|airy|gentle|light/.test(lower)) return 'bright';
+  if(/intense|vibrant|electric|rave|neon|edm|loud|hot/.test(lower)) return 'vivid';
+  return rnd() < 0.4 ? 'dark' : (rnd() < 0.5 ? 'vivid' : 'bright');
+}
+function generatePalette(keyword){
+  const seed = hashKeyword(keyword.toLowerCase());
+  const rnd = mulberry32(seed);
+  const baseHue = inferHue(keyword, rnd);
+  const tone = inferTone(keyword, rnd);
+  // Pick a harmony scheme deterministically
+  const schemes = ['analogous','triadic','complementary','split','tetrad'];
+  const scheme = schemes[Math.floor(rnd() * schemes.length)];
+  let hues;
+  if(scheme === 'analogous')   hues = [baseHue, baseHue+22, baseHue+44, baseHue+66];
+  else if(scheme === 'triadic') hues = [baseHue, baseHue+120, baseHue+240, baseHue+60];
+  else if(scheme === 'complementary') hues = [baseHue, baseHue+180, baseHue+25, baseHue+200];
+  else if(scheme === 'split')   hues = [baseHue, baseHue+150, baseHue+210, baseHue+30];
+  else                          hues = [baseHue, baseHue+90, baseHue+180, baseHue+270];
+  // Tone presets — vary saturation + lightness curve
+  const tonePresets = {
+    dark:   { sat:[55, 85], light:[18, 55] },
+    vivid:  { sat:[70, 95], light:[35, 70] },
+    bright: { sat:[35, 70], light:[55, 85] },
+  };
+  const tp = tonePresets[tone];
+  const colors = hues.map((h, i) => {
+    const sat = tp.sat[0] + rnd() * (tp.sat[1] - tp.sat[0]);
+    // Lightness curve from low-ish to high-ish to give natural gradient
+    const lightT = (i + rnd() * 0.4) / 4;
+    const light = tp.light[0] + lightT * (tp.light[1] - tp.light[0]);
+    return hslToHex(h, sat, light);
+  });
+  // Shuffle order slightly for variety
+  if(rnd() < 0.4) colors.reverse();
+  // Stops biased so transitions don't always feel even
+  const stops = [
+    0,
+    0.18 + rnd() * 0.18,
+    0.45 + rnd() * 0.2,
+    0.8 + rnd() * 0.15,
+  ];
+  return { colors, stops, scheme, tone, baseHue };
+}
+// Vary slider controls deterministically too — same keyword = same look
+function applyKeywordControls(keyword){
+  const seed = hashKeyword(keyword.toLowerCase() + '|controls');
+  const rnd = mulberry32(seed);
+  // Pattern — choose from 4 using hash
+  const patterns = ['SHIVERS','HAIRS','GOOSEBUMPS','DILATING'];
+  // Mood word hints still bias pattern choice
+  const lower = keyword.toLowerCase();
+  let pat;
+  if(/calm|serene|chill|ambient|soft|dream|gentle|flow|liquid/.test(lower)) pat = 'DILATING';
+  else if(/sharp|line|stripe|structured|order|classical|focused|minimal/.test(lower)) pat = 'HAIRS';
+  else if(/dot|bump|grain|chaotic|busy|jazz|funk|noise/.test(lower)) pat = 'GOOSEBUMPS';
+  else if(/intense|ripple|wave|pulse|edm|rave|energy|sharp/.test(lower)) pat = 'SHIVERS';
+  else pat = patterns[Math.floor(rnd() * patterns.length)];
+  selectedPattern = pat;
+  [...qs('patternGrid').children].forEach(b => b.classList.toggle('active', b.dataset.pattern === pat));
+  // Vary controls within sensible ranges
+  const setSlider = (id, v, decimals=2) => {
+    sliders[id].value = v;
+    if(vals[id]) vals[id].textContent = (+v).toFixed(decimals);
+  };
+  // Frequency: 0.08–0.6, biased by 'fast'/'slow' words
+  let freq = 0.08 + rnd() * 0.5;
+  if(/dense|fine|tight|fast/.test(lower)) freq = 0.4 + rnd() * 0.6;
+  if(/loose|broad|sparse|slow|calm/.test(lower)) freq = 0.05 + rnd() * 0.2;
+  setSlider('freq', freq.toFixed(3), 2);
+  // Speed: 0.3–2.0
+  let speed = 0.5 + rnd() * 1.5;
+  if(/slow|calm|chill|still/.test(lower)) speed = 0.2 + rnd() * 0.5;
+  if(/fast|rapid|rave|edm/.test(lower)) speed = 1.5 + rnd() * 1.5;
+  setSlider('cspeed', speed.toFixed(2));
+  sliders.speed.value = speed.toFixed(2);
+  // Grain
+  let grain = rnd() * 0.15;
+  if(/grain|grit|raw|noisy|analog/.test(lower)) grain = 0.15 + rnd() * 0.3;
+  setSlider('noise', grain.toFixed(3));
+  // Displacement alpha
+  setSlider('dalpha', (0.4 + rnd() * 0.6).toFixed(2));
+  // Blur sigma — softer for calm/dream, sharper for sharp/electric
+  let blur = rnd() * 6;
+  if(/dream|soft|hazy|blur|misty/.test(lower)) blur = 6 + rnd() * 15;
+  if(/sharp|crisp|clear|hard/.test(lower)) blur = 0;
+  setSlider('blur', blur.toFixed(1), 1);
+}
+
+/* Mood/keyword input — apply on Enter or after typing pauses */
+let moodApplyTimer = null;
+function applyMood(){
+  const keyword = qs('moodInput').value.trim();
+  if(!keyword) return;
+  // Build a unique palette from the keyword
+  const gen = generatePalette(keyword);
+  const key = 'GEN_' + hashKeyword(keyword.toLowerCase());
+  PALETTES[key] = {
+    name: '✦ ' + keyword,
+    colors: gen.colors,
+    userStops: gen.stops,
+    generated: true,
+  };
+  selectedPaletteKey = key;
+  // Prune older generated palettes (keep last 5)
+  const genKeys = Object.keys(PALETTES).filter(k => PALETTES[k].generated && k !== key);
+  if(genKeys.length > 4){
+    genKeys.slice(0, genKeys.length - 4).forEach(k => delete PALETTES[k]);
+  }
+  // Apply pattern + slider variations
+  applyKeywordControls(keyword);
+  // Use user-defined stops for generated palettes
+  qs('stopsMode').value = 'user';
+  buildPaletteList();
+  if(!animateEl.checked) renderPasses();
+}
+qs('moodInput').addEventListener('input', () => {
+  clearTimeout(moodApplyTimer);
+  moodApplyTimer = setTimeout(applyMood, 400);
+});
+qs('moodInput').addEventListener('keydown', e => {
+  if(e.key === 'Enter'){ applyMood(); e.preventDefault(); }
+});
+
+/* ==================== DEPTH MODEL ==================== */
+async function ensureModel(){
+  if(depthEstimator) return depthEstimator;
+  setStatus('Loading Depth Anything V2 (~100 MB)… once.', '');
+  depthEstimator = await pipeline('depth-estimation', 'onnx-community/depth-anything-v2-small', {
+    progress_callback:(p) => {
+      if(p.status === 'progress' && typeof p.progress === 'number'){
+        setProgress(p.progress);
+        const mb = p.loaded && p.total ? ` · ${(p.loaded/1e6).toFixed(1)} / ${(p.total/1e6).toFixed(1)} MB` : '';
+        setStatus(`Downloading ${p.file || 'model'}${mb}`, '');
+      } else if(p.status === 'ready'){ setStatus('Model ready.', 'ok'); }
+      else if(p.status === 'initiate' || p.status === 'download'){ setStatus(`Fetching ${p.file || 'model'}…`, ''); }
+    }
+  });
+  return depthEstimator;
+}
+
+/* ==================== WEBGL2 PIPELINE (verbatim shaders) ==================== */
+const VS = `#version 300 es
+in vec2 aPos;
+out vec2 vUv;
+void main(){ vUv = (aPos + 1.0) * 0.5; gl_Position = vec4(aPos, 0.0, 1.0); }`;
+
+const FS_BLUR = `#version 300 es
+precision highp float;
+in vec2 vUv;
+out vec4 outColor;
+uniform sampler2D uTex;
+uniform vec2  uTexel;
+uniform float uKernel;
+uniform vec2  uDir;
+void main(){
+  float sigma = max(uKernel, 0.0001);
+  float sum = 0.0;
+  float wsum = 0.0;
+  const int R = 32;
+  for (int i = -R; i <= R; i++){
+    float fi = float(i);
+    float w = exp(-0.5 * fi * fi / (sigma * sigma));
+    sum  += texture(uTex, vUv + uDir * uTexel * fi).r * w;
+    wsum += w;
+  }
+  outColor = vec4(vec3(sum / wsum), 1.0);
+}`;
+
+const FS_SHIVERS = `#version 300 es
+precision highp float;
+in vec2 vUv;
+out vec4 outColor;
+uniform sampler2D uTex;
+uniform vec2  resolution;
+uniform float e0Time;
+uniform vec2  e0Origin;
+uniform float e0Speed;
+uniform float e0Frequency;
+uniform float e0Power;
+uniform float e0Distortion;
+uniform float e0Luminosity;
+uniform vec2  e0LuminosityBounds;
+uniform float e0LuminositySoftness;
+uniform float e0LuminosityAlpha;
+float e0Average(vec3 v) { return (v.x + v.y + v.z) / 3.0; }
+float e0Softbounds(in float value, in float mn, in float mx, in float softness){
+  float m1 = smoothstep(mn - softness, mn, value);
+  float m2 = 1.0 - smoothstep(mx, mx + softness, value);
+  return m1 * m2;
+}
+float e0Softbounds(in float value, in vec2 b, in float s){ return e0Softbounds(value, b.x, b.y, s); }
+void e0MainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor){
+  float depth = 1.0 - e0Average(inputColor.rgb);
+  float fromOrigin = distance(uv * resolution, e0Origin * resolution);
+  fromOrigin += (0.5 - depth) * e0Distortion * min(resolution.x, resolution.y);
+  float value = fromOrigin * e0Frequency - e0Time * e0Speed;
+  float offset = pow(cos(value) * 0.5 + 0.5, e0Power);
+  float colorOffset = offset;
+  colorOffset *= e0Luminosity;
+  colorOffset *= e0Softbounds(depth, e0LuminosityBounds, e0LuminositySoftness);
+  vec3 color = clamp(inputColor.rgb + colorOffset, 0.0, 1.0);
+  outputColor = mix(inputColor, vec4(color, inputColor.a), e0LuminosityAlpha);
+}
+void main(){
+  float g = texture(uTex, vUv).r;
+  vec4 input_ = vec4(vec3(g), 1.0);
+  vec4 output_ = vec4(0.0);
+  e0MainImage(input_, vUv, output_);
+  outColor = output_;
+}`;
+
+const FS_HAIRS = `#version 300 es
+precision highp float;
+in vec2 vUv;
+out vec4 outColor;
+uniform sampler2D uTex;
+uniform vec2  resolution;
+uniform float e0Time;
+uniform float e0Speed;
+uniform float e0Frequency;
+uniform float e0Power;
+uniform float e0Displacement;
+uniform vec2  e0DisplacementBounds;
+uniform float e0DisplacementSoftness;
+uniform float e0DisplacementAlpha;
+uniform float e0Luminosity;
+uniform vec2  e0LuminosityBounds;
+uniform float e0LuminositySoftness;
+uniform float e0LuminosityAlpha;
+float e0Average(vec3 v) { return (v.x + v.y + v.z) / 3.0; }
+float e0Softbounds(in float value, in float mn, in float mx, in float softness){
+  float m1 = smoothstep(mn - softness, mn, value);
+  float m2 = 1.0 - smoothstep(mx, mx + softness, value);
+  return m1 * m2;
+}
+float e0Softbounds(in float value, in vec2 b, in float s){ return e0Softbounds(value, b.x, b.y, s); }
+void main(){
+  vec2 vUv2 = vUv;
+  float x = vUv2.x * resolution.x * e0Frequency + e0Time * e0Speed;
+  float cosValue = clamp(cos(x) * 0.5 + 0.5, 0.001, 0.999);
+  float offset = pow(cosValue, e0Power);
+  vec4 inputColor = vec4(vec3(texture(uTex, vUv2).r), 1.0);
+  float depth = 1.0 - e0Average(inputColor.rgb);
+  float uvOffset = offset * 2.0 - 1.0;
+  uvOffset *= e0Displacement;
+  uvOffset *= e0Softbounds(depth, e0DisplacementBounds, e0DisplacementSoftness);
+  vUv2.y = clamp(vUv2.y + uvOffset, 0.0, 1.0);
+  vec4 outputColor = mix(inputColor, vec4(vec3(texture(uTex, vUv2).r), 1.0), e0DisplacementAlpha);
+  float colorOffset = offset * e0Luminosity * e0Softbounds(depth, e0LuminosityBounds, e0LuminositySoftness);
+  vec3 color = clamp(outputColor.rgb + colorOffset, 0.0, 1.0);
+  outputColor = mix(outputColor, vec4(color, outputColor.a), e0LuminosityAlpha);
+  outColor = outputColor;
+}`;
+
+const FS_GOOSEBUMPS = `#version 300 es
+precision highp float;
+in vec2 vUv;
+out vec4 outColor;
+uniform sampler2D uTex;
+uniform vec2  resolution;
+uniform float e0Time;
+uniform float e0Speed;
+uniform float e0Frequency;
+uniform float e0Displacement;
+uniform vec2  e0DisplacementBounds;
+uniform float e0DisplacementSoftness;
+uniform float e0DisplacementAlpha;
+uniform float e0Luminosity;
+uniform vec2  e0LuminosityBounds;
+uniform float e0LuminositySoftness;
+uniform float e0LuminosityAlpha;
+float e0Average(vec3 v) { return (v.x + v.y + v.z) / 3.0; }
+float e0Softbounds(in float value, in float mn, in float mx, in float softness){
+  float m1 = smoothstep(mn - softness, mn, value);
+  float m2 = 1.0 - smoothstep(mx, mx + softness, value);
+  return m1 * m2;
+}
+float e0Softbounds(in float value, in vec2 b, in float s){ return e0Softbounds(value, b.x, b.y, s); }
+void main(){
+  vec2 vUv2 = vUv;
+  float x = vUv2.x * resolution.x * e0Frequency + e0Time * e0Speed;
+  float y = vUv2.y * resolution.y * e0Frequency + e0Time * e0Speed;
+  vec4 inputColor = vec4(vec3(texture(uTex, vUv2).r), 1.0);
+  float depth = 1.0 - e0Average(inputColor.rgb);
+  vec2 uvOffset = vec2(cos(x + y) * cos(y), sin(x - y) * cos(y));
+  uvOffset *= e0Displacement;
+  uvOffset *= e0Softbounds(depth, e0DisplacementBounds, e0DisplacementSoftness);
+  vUv2 = clamp(vUv2 + uvOffset, 0.0, 1.0);
+  vec4 outputColor = mix(inputColor, vec4(vec3(texture(uTex, vUv2).r), 1.0), e0DisplacementAlpha);
+  float offset = cos(x + y) * 0.5 + 0.5;
+  float colorOffset = offset * e0Luminosity * e0Softbounds(depth, e0LuminosityBounds, e0LuminositySoftness);
+  vec3 color = clamp(outputColor.rgb + colorOffset, 0.0, 1.0);
+  outputColor = mix(outputColor, vec4(color, outputColor.a), e0LuminosityAlpha);
+  outColor = outputColor;
+}`;
+
+const FS_DILATING = `#version 300 es
+precision highp float;
+in vec2 vUv;
+out vec4 outColor;
+uniform sampler2D uTex;
+uniform vec2  resolution;
+uniform float e0Time;
+uniform float e0Speed;
+uniform float e0Frequency;
+uniform float e0Power;
+uniform float e0Displacement;
+uniform vec2  e0Origin;
+uniform vec2  e0DisplacementBounds;
+uniform float e0DisplacementSoftness;
+uniform float e0DisplacementAlpha;
+uniform float e0Luminosity;
+uniform vec2  e0LuminosityBounds;
+uniform float e0LuminositySoftness;
+uniform float e0LuminosityAlpha;
+float e0Average(vec3 v) { return (v.x + v.y + v.z) / 3.0; }
+float e0Softbounds(in float value, in float mn, in float mx, in float softness){
+  float m1 = smoothstep(mn - softness, mn, value);
+  float m2 = 1.0 - smoothstep(mx, mx + softness, value);
+  return m1 * m2;
+}
+float e0Softbounds(in float value, in vec2 b, in float s){ return e0Softbounds(value, b.x, b.y, s); }
+void main(){
+  vec2 vUv2 = vUv;
+  vec4 inputColor = vec4(vec3(texture(uTex, vUv2).r), 1.0);
+  float depth = 1.0 - e0Average(inputColor.rgb);
+
+  // Dilating: the image breathes — a smooth global zoom modulated by two
+  // de-tuned sine waves so it never reads as concentric rings, plus a depth-
+  // driven 2D warp so the shape morphs as it expands and contracts.
+  float t      = e0Time * e0Speed;
+  float breath = sin(t) * 0.5 + 0.5;            // 0 → 1 main breath
+  float breath2= sin(t * 1.73 + 1.3) * 0.5 + 0.5; // de-tuned secondary breath
+
+  // Centre-anchored uniform zoom (subtle — no visible ring crests)
+  vec2 fromCenter = vUv2 - vec2(0.5);
+  float scale = 1.0 + (breath - 0.5) * e0Displacement * 12.0;
+
+  // Smooth orthogonal sine warp — image stretches sideways while breathing
+  float warpFreq = max(e0Frequency, 0.05) * 30.0;
+  vec2 warp = vec2(
+    sin(vUv2.y * warpFreq + t)        * (1.0 - depth),
+    cos(vUv2.x * warpFreq - t * 0.85) * depth
+  ) * e0Displacement * 0.4;
+
+  float depthMask = e0Softbounds(depth, e0DisplacementBounds, e0DisplacementSoftness);
+  vec2 distortedUv = clamp(vec2(0.5) + fromCenter * scale + warp * depthMask, 0.0, 1.0);
+  vec4 outputColor = mix(inputColor, vec4(vec3(texture(uTex, distortedUv).r), 1.0), e0DisplacementAlpha);
+
+  // Soft global luminosity pulse — driven by averaged breath, not radial distance
+  float lumPulse = (breath + breath2) * 0.5;
+  float lumMask = e0Softbounds(depth, e0LuminosityBounds, e0LuminositySoftness);
+  vec3 colored = clamp(outputColor.rgb + lumPulse * e0Luminosity * 0.6 * lumMask, 0.0, 1.0);
+  outputColor = mix(outputColor, vec4(colored, outputColor.a), e0LuminosityAlpha);
+  outColor = outputColor;
+}`;
+
+const FS_COLOR = `#version 300 es
+precision highp float;
+#define TAU 6.28318530718
+#define e0COUNT 4
+in vec2 vUv;
+out vec4 outColor;
+uniform sampler2D uTex;
+uniform float e0Time;
+uniform bool  e0Active;
+uniform vec3  e0Colors[e0COUNT];
+uniform float e0Stops[e0COUNT];
+uniform float e0Frequency;
+uniform float e0Speed;
+uniform float e0WiggleFrequency;
+uniform float e0WiggleSpeed;
+uniform float e0WigglePower;
+uniform float e0WiggleAmplitude;
+uniform float e0Noise;
+uint pcg2d(uvec2 v){
+  v = v * 1664525u + 1013904223u;
+  v.x += v.y * 1664525u;  v.y += v.x * 1664525u;
+  v = v ^ (v >> 16u);
+  v.x += v.y * 1664525u;  v.y += v.x * 1664525u;
+  v = v ^ (v >> 16u);
+  return v.x + v.y;
+}
+vec3 hashRGB(vec2 p){
+  uvec2 q = uvec2(ivec2(floor(p)));
+  uint a = pcg2d(q);
+  uint b = pcg2d(q ^ 0x9e3779b9u);
+  uint c = pcg2d(q ^ 0x85ebca6bu);
+  return vec3(float(a), float(b), float(c)) * (1.0 / 4294967295.0);
+}
+float e0Average(vec3 v) { return (v.x + v.y + v.z) / 3.0; }
+vec3  e0Grayscale(in vec3 color, in float threshold){
+  float grey = dot(color, vec3(0.299, 0.587, 0.114));
+  return mix(color, vec3(grey), threshold);
+}
+vec3  e0Grayscale(in vec3 color){ return e0Grayscale(color, 1.0); }
+float e0SinCurve(in float n){
+  return (sin(n) + sin(2.2 * n + 5.52) + sin(2.9 * n + 0.93) + sin(4.6 * n + 8.94)) / 4.0;
+}
+vec3 interpolate(float t, vec3 cols[e0COUNT], float stops[e0COUNT]){
+  vec3 color = cols[0];
+  for (int i = 1; i < e0COUNT; i++){
+    float start = stops[i - 1];
+    float end   = stops[i];
+    float progress = smoothstep(start, end, t);
+    color = mix(color, cols[i], progress);
+  }
+  return color;
+}
+void e0MainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor){
+  if (e0Active) {
+    float gray  = e0Average(e0Grayscale(inputColor.rgb));
+    float depth = 1.0 - gray;
+    float w = depth * e0WiggleFrequency + e0Time * e0WiggleSpeed;
+    float wiggle = pow(e0SinCurve(w) * 0.5 + 0.5, e0WigglePower);
+    wiggle *= e0WiggleAmplitude;
+    float i = gray * e0Frequency * TAU + e0Time * e0Speed;
+    float progress = cos(i) * 0.5 + 0.5;
+    vec3 color = interpolate(progress + wiggle, e0Colors, e0Stops);
+    outputColor = vec4(color, inputColor.a);
+  } else {
+    outputColor = inputColor;
+  }
+}
+void main(){
+  vec2 uv = vec2(vUv.x, 1.0 - vUv.y);
+  vec4 inp = texture(uTex, uv);
+  vec4 oc = vec4(0.0);
+  e0MainImage(inp, uv, oc);
+  oc.rgb = mix(pow(oc.rgb, vec3(1.0/2.4)) * 1.055 - 0.055, oc.rgb * 12.92, vec3(lessThanEqual(oc.rgb, vec3(0.0031308))));
+  if (e0Noise > 0.0){
+    vec3 n = hashRGB(gl_FragCoord.xy);
+    oc.rgb = clamp(oc.rgb + (n - 0.5) * e0Noise, 0.0, 1.0);
+  }
+  outColor = oc;
+}`;
+
+let gl = null;
+const P = { blur:null, shivers:null, hairs:null, goosebumps:null, dilating:null, color:null };
+const U = { blur:{}, shivers:{}, hairs:{}, goosebumps:{}, dilating:{}, color:{} };
+let vao = null;
+let fboPing = null, fboPong = null, texPing = null, texPong = null, fboW = 0, fboH = 0;
+let depthTex = null, depthW = 0, depthH = 0, depthRaw = null;
+
+function compile(type, src){
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src); gl.compileShader(s);
+  if(!gl.getShaderParameter(s, gl.COMPILE_STATUS))
+    throw new Error('Shader compile: ' + gl.getShaderInfoLog(s));
+  return s;
+}
+function linkProg(vsSrc, fsSrc){
+  const p = gl.createProgram();
+  gl.attachShader(p, compile(gl.VERTEX_SHADER, vsSrc));
+  gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fsSrc));
+  gl.bindAttribLocation(p, 0, 'aPos');
+  gl.linkProgram(p);
+  if(!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('Link: '+gl.getProgramInfoLog(p));
+  return p;
+}
+function initGL(){
+  gl = outCv.getContext('webgl2', { antialias:false, premultipliedAlpha:false, preserveDrawingBuffer:true });
+  if(!gl) throw new Error('WebGL2 required');
+  gl.getExtension('EXT_color_buffer_float');
+  P.blur = linkProg(VS, FS_BLUR);
+  P.shivers = linkProg(VS, FS_SHIVERS);
+  P.hairs = linkProg(VS, FS_HAIRS);
+  P.goosebumps = linkProg(VS, FS_GOOSEBUMPS);
+  P.dilating = linkProg(VS, FS_DILATING);
+  P.color = linkProg(VS, FS_COLOR);
+  U.blur = {
+    uTex: gl.getUniformLocation(P.blur, 'uTex'),
+    uTexel: gl.getUniformLocation(P.blur, 'uTexel'),
+    uKernel: gl.getUniformLocation(P.blur, 'uKernel'),
+    uDir: gl.getUniformLocation(P.blur, 'uDir'),
+  };
+  U.shivers = {};
+  for (const n of ['uTex','resolution','e0Time','e0Origin','e0Speed','e0Frequency','e0Power','e0Distortion','e0Luminosity','e0LuminosityBounds','e0LuminositySoftness','e0LuminosityAlpha'])
+    U.shivers[n] = gl.getUniformLocation(P.shivers, n);
+  U.hairs = {};
+  for (const n of ['uTex','resolution','e0Time','e0Speed','e0Frequency','e0Power','e0Displacement','e0DisplacementBounds','e0DisplacementSoftness','e0DisplacementAlpha','e0Luminosity','e0LuminosityBounds','e0LuminositySoftness','e0LuminosityAlpha'])
+    U.hairs[n] = gl.getUniformLocation(P.hairs, n);
+  U.goosebumps = {};
+  for (const n of ['uTex','resolution','e0Time','e0Speed','e0Frequency','e0Displacement','e0DisplacementBounds','e0DisplacementSoftness','e0DisplacementAlpha','e0Luminosity','e0LuminosityBounds','e0LuminositySoftness','e0LuminosityAlpha'])
+    U.goosebumps[n] = gl.getUniformLocation(P.goosebumps, n);
+  U.dilating = {};
+  for (const n of ['uTex','resolution','e0Time','e0Origin','e0Speed','e0Frequency','e0Power','e0Displacement','e0DisplacementBounds','e0DisplacementSoftness','e0DisplacementAlpha','e0Luminosity','e0LuminosityBounds','e0LuminositySoftness','e0LuminosityAlpha'])
+    U.dilating[n] = gl.getUniformLocation(P.dilating, n);
+  U.color = {};
+  for (const n of ['uTex','e0Time','e0Active','e0Frequency','e0Speed','e0WiggleFrequency','e0WiggleSpeed','e0WigglePower','e0WiggleAmplitude','e0Noise'])
+    U.color[n] = gl.getUniformLocation(P.color, n);
+  U.color.e0Colors = [];
+  U.color.e0Stops = [];
+  for (let i=0;i<4;i++){
+    U.color.e0Colors.push(gl.getUniformLocation(P.color, `e0Colors[${i}]`));
+    U.color.e0Stops.push(gl.getUniformLocation(P.color, `e0Stops[${i}]`));
+  }
+  vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+  const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  depthTex = gl.createTexture();
+}
+function ensureFBOs(w, h){
+  if (w === fboW && h === fboH && fboPing) return;
+  fboW = w; fboH = h;
+  if (texPing) gl.deleteTexture(texPing);
+  if (texPong) gl.deleteTexture(texPong);
+  if (fboPing) gl.deleteFramebuffer(fboPing);
+  if (fboPong) gl.deleteFramebuffer(fboPong);
+  function make(){
+    const t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    const f = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, f);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+    return { tex:t, fbo:f };
+  }
+  const a = make(), b = make();
+  texPing = a.tex; fboPing = a.fbo;
+  texPong = b.tex; fboPong = b.fbo;
+}
+function applyOutputSize(){
+  if(!gl) return;
+  const preset = qs('sizePreset').value;
+  const cdims = qs('customDims');
+  let w, h;
+  if(preset === 'native'){
+    if(cdims) cdims.style.display = 'none';
+    w = depthW || 512; h = depthH || 512;
+  } else if(preset === 'custom'){
+    if(cdims) cdims.style.display = 'flex';
+    w = parseInt(qs('customW').value, 10) || 1080;
+    h = parseInt(qs('customH').value, 10) || 1080;
+  } else {
+    if(cdims) cdims.style.display = 'none';
+    const [pw, ph] = preset.split('x').map(Number);
+    w = pw; h = ph;
+  }
+  // Clamp to sensible WebGL texture limits
+  w = Math.max(64, Math.min(16000, w));
+  h = Math.max(64, Math.min(16000, h));
+  outCv.width = w; outCv.height = h;
+  ensureFBOs(w, h);
+  updatePatternFrame(w, h);
+  // If we already have an original depth source, recrop it to the new aspect
+  // so the pattern fills the artboard without stretching.
+  if(_origDepth && gl){
+    const c = _centerCrop(_origDepth.gray, _origDepth.w, _origDepth.h, w/h);
+    depthRaw = c.gray;
+    // Direct upload (avoids recursion via uploadDepthCovering → applyOutputSize)
+    depthW = c.w; depthH = c.h;
+    gl.bindTexture(gl.TEXTURE_2D, depthTex);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, c.w, c.h, 0, gl.RED, gl.UNSIGNED_BYTE, c.gray);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    renderPasses();
+  }
+  if(depthRaw && !animateEl.checked) renderPasses();
+}
+
+// Track the original (uncropped) depth source so we can recrop on size change
+let _origDepth = null; // { gray, w, h }
+function storeOriginalDepth(gray, w, h){ _origDepth = { gray, w, h }; }
+function _centerCrop(srcGray, srcW, srcH, targetAspect){
+  const srcA = srcW / srcH;
+  let cropW = srcW, cropH = srcH, ox = 0, oy = 0;
+  if(srcA > targetAspect){
+    cropW = Math.round(srcH * targetAspect);
+    ox = Math.floor((srcW - cropW) / 2);
+  } else if(srcA < targetAspect){
+    cropH = Math.round(srcW / targetAspect);
+    oy = Math.floor((srcH - cropH) / 2);
+  }
+  if(cropW === srcW && cropH === srcH) return { gray: srcGray, w: srcW, h: srcH };
+  const out = new Uint8Array(cropW * cropH);
+  for(let y=0; y<cropH; y++){
+    const sy = (oy + y) * srcW + ox;
+    out.set(srcGray.subarray(sy, sy + cropW), y * cropW);
+  }
+  return { gray: out, w: cropW, h: cropH };
+}
+// Re-crops the stored original depth to match the current output aspect, then
+// uploads it so the pattern fills the artboard without stretching.
+function uploadDepthCovering(srcGray, srcW, srcH){
+  // Figure out what target aspect to crop to — current output preset
+  const preset = qs('sizePreset')?.value || 'native';
+  let aspect = srcW / srcH;
+  if(preset !== 'native' && preset !== ''){
+    let pw, ph;
+    if(preset === 'custom'){
+      pw = parseInt(qs('customW')?.value, 10) || srcW;
+      ph = parseInt(qs('customH')?.value, 10) || srcH;
+    } else {
+      [pw, ph] = preset.split('x').map(Number);
+    }
+    if(pw && ph) aspect = pw / ph;
+  }
+  const c = _centerCrop(srcGray, srcW, srcH, aspect);
+  uploadDepth(c.gray, c.w, c.h);
+}
+
+function uploadDepth(gray, w, h){
+  if(!gl) initGL();
+  depthW = w; depthH = h;
+  gl.bindTexture(gl.TEXTURE_2D, depthTex);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, w, h, 0, gl.RED, gl.UNSIGNED_BYTE, gray);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  // Apply currently-selected output size (default: match depth map)
+  applyOutputSize();
+  // Depth preview
+  const dctx = depthCv.getContext('2d');
+  depthCv.width = w; depthCv.height = h;
+  const img = dctx.createImageData(w, h);
+  for (let i=0, j=0; i<gray.length; i++, j+=4){
+    img.data[j] = img.data[j+1] = img.data[j+2] = gray[i]; img.data[j+3] = 255;
+  }
+  dctx.putImageData(img, 0, 0);
+  qs('depthEmpty').style.display = 'none';
+  qs('outEmpty').style.display = 'none';
+  shiversCv.width = w; shiversCv.height = h;
+  // Enable exports
+  qs('exportPng').disabled = false;
+  qs('exportJpg').disabled = false;
+  qs('exportMp4').disabled = !animateEl.checked;
+  // Render immediately so user sees a frame even while paused
+  renderPasses();
+}
+
+function renderPasses(){
+  if(!depthRaw || !gl) return;
+  const W = fboW, H = fboH;
+  gl.viewport(0, 0, W, H);
+  gl.bindVertexArray(vao);
+
+  const sigma = parseFloat(sliders.blur.value);
+  const iterations = sigma > 0 ? parseInt(sliders.iters.value, 10) : 0;
+  gl.useProgram(P.blur);
+  gl.uniform1i(U.blur.uTex, 0);
+  gl.uniform2f(U.blur.uTexel, 1/W, 1/H);
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fboPing);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, depthTex);
+  gl.uniform1f(U.blur.uKernel, 0.0);
+  gl.uniform2f(U.blur.uDir, 0.0, 1.0);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+  let src = texPing, dstFbo = fboPong, dstTex = texPong;
+  const swap = () => {
+    if (dstTex === texPong){ src = texPong; dstFbo = fboPing; dstTex = texPing; }
+    else { src = texPing; dstFbo = fboPong; dstTex = texPong; }
+  };
+  for (let i = 0; i < iterations; i++){
+    gl.bindFramebuffer(gl.FRAMEBUFFER, dstFbo);
+    gl.bindTexture(gl.TEXTURE_2D, src);
+    gl.uniform1f(U.blur.uKernel, sigma);
+    gl.uniform2f(U.blur.uDir, 1.0, 0.0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    swap();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, dstFbo);
+    gl.bindTexture(gl.TEXTURE_2D, src);
+    gl.uniform1f(U.blur.uKernel, sigma);
+    gl.uniform2f(U.blur.uDir, 0.0, 1.0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    swap();
+  }
+  const blurredTex = src;
+
+  const shiversFbo = (blurredTex === texPing) ? fboPong : fboPing;
+  const shiversTex = (blurredTex === texPing) ? texPong : texPing;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, shiversFbo);
+
+  const tNow = currentRenderTime();
+  const fOx = parseFloat(sliders.ox.value), fOy = parseFloat(sliders.oy.value);
+  const fFreq = parseFloat(sliders.freq.value), fSpeed = parseFloat(sliders.speed.value);
+  const fPow  = parseFloat(sliders.power.value), fDist = parseFloat(sliders.dist.value);
+  const fDispl = parseFloat(sliders.displ.value), fDalpha = parseFloat(sliders.dalpha.value);
+  const fDbMin = parseFloat(sliders.dbmin.value), fDbMax = parseFloat(sliders.dbmax.value);
+  const fDsoft = parseFloat(sliders.dsoft.value);
+  const fLum = parseFloat(sliders.lum.value), fAlpha = parseFloat(sliders.alpha.value);
+  const fLbMin = parseFloat(sliders.lbmin.value), fLbMax = parseFloat(sliders.lbmax.value);
+  const fLbSoft = parseFloat(sliders.lbsoft.value);
+
+  const pattern = selectedPattern;
+  if (pattern === 'SHIVERS'){
+    gl.useProgram(P.shivers);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, blurredTex);
+    gl.uniform1i(U.shivers.uTex, 0);
+    gl.uniform2f(U.shivers.resolution, W, H);
+    gl.uniform1f(U.shivers.e0Time, tNow);
+    gl.uniform2f(U.shivers.e0Origin, fOx, fOy);
+    gl.uniform1f(U.shivers.e0Speed, fSpeed);
+    gl.uniform1f(U.shivers.e0Frequency, fFreq);
+    gl.uniform1f(U.shivers.e0Power, fPow);
+    gl.uniform1f(U.shivers.e0Distortion, fDist);
+    gl.uniform1f(U.shivers.e0Luminosity, fLum);
+    gl.uniform2f(U.shivers.e0LuminosityBounds, fLbMin, fLbMax);
+    gl.uniform1f(U.shivers.e0LuminositySoftness, fLbSoft);
+    gl.uniform1f(U.shivers.e0LuminosityAlpha, fAlpha);
+  } else if (pattern === 'HAIRS'){
+    gl.useProgram(P.hairs);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, blurredTex);
+    gl.uniform1i(U.hairs.uTex, 0);
+    gl.uniform2f(U.hairs.resolution, W, H);
+    gl.uniform1f(U.hairs.e0Time, tNow);
+    gl.uniform1f(U.hairs.e0Speed, fSpeed);
+    gl.uniform1f(U.hairs.e0Frequency, fFreq);
+    gl.uniform1f(U.hairs.e0Power, fPow);
+    gl.uniform1f(U.hairs.e0Displacement, fDispl);
+    gl.uniform2f(U.hairs.e0DisplacementBounds, fDbMin, fDbMax);
+    gl.uniform1f(U.hairs.e0DisplacementSoftness, fDsoft);
+    gl.uniform1f(U.hairs.e0DisplacementAlpha, fDalpha);
+    gl.uniform1f(U.hairs.e0Luminosity, fLum);
+    gl.uniform2f(U.hairs.e0LuminosityBounds, fLbMin, fLbMax);
+    gl.uniform1f(U.hairs.e0LuminositySoftness, fLbSoft);
+    gl.uniform1f(U.hairs.e0LuminosityAlpha, fAlpha);
+  } else if (pattern === 'GOOSEBUMPS'){
+    gl.useProgram(P.goosebumps);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, blurredTex);
+    gl.uniform1i(U.goosebumps.uTex, 0);
+    gl.uniform2f(U.goosebumps.resolution, W, H);
+    gl.uniform1f(U.goosebumps.e0Time, tNow);
+    gl.uniform1f(U.goosebumps.e0Speed, fSpeed);
+    gl.uniform1f(U.goosebumps.e0Frequency, fFreq);
+    gl.uniform1f(U.goosebumps.e0Displacement, fDispl);
+    gl.uniform2f(U.goosebumps.e0DisplacementBounds, fDbMin, fDbMax);
+    gl.uniform1f(U.goosebumps.e0DisplacementSoftness, fDsoft);
+    gl.uniform1f(U.goosebumps.e0DisplacementAlpha, fDalpha);
+    gl.uniform1f(U.goosebumps.e0Luminosity, fLum);
+    gl.uniform2f(U.goosebumps.e0LuminosityBounds, fLbMin, fLbMax);
+    gl.uniform1f(U.goosebumps.e0LuminositySoftness, fLbSoft);
+    gl.uniform1f(U.goosebumps.e0LuminosityAlpha, fAlpha);
+  } else {
+    gl.useProgram(P.dilating);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, blurredTex);
+    gl.uniform1i(U.dilating.uTex, 0);
+    gl.uniform2f(U.dilating.resolution, W, H);
+    gl.uniform1f(U.dilating.e0Time, tNow);
+    gl.uniform2f(U.dilating.e0Origin, fOx, fOy);
+    gl.uniform1f(U.dilating.e0Speed, fSpeed);
+    gl.uniform1f(U.dilating.e0Frequency, fFreq);
+    gl.uniform1f(U.dilating.e0Power, fPow);
+    gl.uniform1f(U.dilating.e0Displacement, fDispl);
+    gl.uniform2f(U.dilating.e0DisplacementBounds, fDbMin, fDbMax);
+    gl.uniform1f(U.dilating.e0DisplacementSoftness, fDsoft);
+    gl.uniform1f(U.dilating.e0DisplacementAlpha, fDalpha);
+    gl.uniform1f(U.dilating.e0Luminosity, fLum);
+    gl.uniform2f(U.dilating.e0LuminosityBounds, fLbMin, fLbMax);
+    gl.uniform1f(U.dilating.e0LuminositySoftness, fLbSoft);
+    gl.uniform1f(U.dilating.e0LuminosityAlpha, fAlpha);
+  }
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+  // ===== Color pass =====
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, outCv.width, outCv.height);
+  gl.useProgram(P.color);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, shiversTex);
+  gl.uniform1i(U.color.uTex, 0);
+  gl.uniform1f(U.color.e0Time, currentRenderTime());
+  gl.uniform1i(U.color.e0Active, 1);
+  gl.uniform1f(U.color.e0Frequency, parseFloat(sliders.cfreq.value));
+  gl.uniform1f(U.color.e0Speed, parseFloat(sliders.cspeed.value));
+  gl.uniform1f(U.color.e0WiggleFrequency, parseFloat(sliders.wfreq.value));
+  gl.uniform1f(U.color.e0WiggleSpeed, parseFloat(sliders.wspeed.value));
+  gl.uniform1f(U.color.e0WigglePower, parseFloat(sliders.wpow.value));
+  gl.uniform1f(U.color.e0WiggleAmplitude, parseFloat(sliders.wamp.value));
+  gl.uniform1f(U.color.e0Noise, parseFloat(sliders.noise.value));
+
+  const pal = PALETTES[selectedPaletteKey];
+  const linCols = pal.colors.map(hexToLinearRGB);
+  const stops = (stopsMode.value === 'user') ? pal.userStops : evenStops(4);
+  for (let i=0; i<4; i++){
+    gl.uniform3f(U.color.e0Colors[i], linCols[i][0], linCols[i][1], linCols[i][2]);
+    gl.uniform1f(U.color.e0Stops[i], stops[i]);
+  }
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+}
+
+/* ==================== RUN DEPTH ==================== */
+runBtn.addEventListener('click', async () => {
+  if(!currentURL) return;
+  runBtn.disabled = true;
+  try{
+    const est = await ensureModel();
+    setStatus('Running depth inference…', ''); setProgress(40);
+    const t0 = performance.now();
+    const output = await est(currentURL);
+    const t1 = performance.now();
+    const raw = output.depth;
+    const N = raw.width * raw.height;
+    const channels = raw.channels || 1;
+    const gray = new Uint8Array(N);
+    for(let i=0, j=0; i<N; i++, j+=channels) gray[i] = raw.data[j];
+    depthRaw = gray;
+    if(!gl) initGL();
+    storeOriginalDepth(gray, raw.width, raw.height);
+    uploadDepthCovering(gray, raw.width, raw.height);
+    setProgress(100);
+    setStatus(`Depth ${raw.width}×${raw.height} · ${((t1-t0)/1000).toFixed(2)}s · pattern live`, 'ok');
+    renderPasses();
+  } catch(err){
+    console.error(err);
+    setStatus('Error: ' + (err.message||err), 'err');
+  } finally { runBtn.disabled = false; }
+});
+
+/* ==================== SLIDER WIRING ==================== */
+for (const [k, el] of Object.entries(sliders)){
+  el.addEventListener('input', () => {
+    if(vals[k]) vals[k].textContent = fmt(el.value, el.step);
+    // "Palette Speed" slider (cspeed) also drives pattern time — single speed control
+    if(k === 'cspeed'){
+      sliders.speed.value = el.value;
+      if(vals.speed) vals.speed.textContent = fmt(el.value, el.step);
+    }
+    if(k === 'ox' || k === 'oy') syncOriginIndicator();
+    // "Intensity" (dalpha) is now a global pattern intensity — drives both displacement
+    // alpha AND luminosity alpha, so it actually affects Shivers (which has no displacement)
+    if(k === 'dalpha'){
+      sliders.alpha.value = el.value;
+      if(vals.alpha) vals.alpha.textContent = fmt(el.value, el.step);
+    }
+    if(!animateEl.checked) renderPasses();
+  });
+}
+stopsMode.addEventListener('change', () => { if(!animateEl.checked) renderPasses(); });
+qs('sizePreset').addEventListener('change', applyOutputSize);
+qs('customApply')?.addEventListener('click', applyOutputSize);
+qs('customW')?.addEventListener('keydown', e => { if(e.key === 'Enter') applyOutputSize(); });
+qs('customH')?.addEventListener('keydown', e => { if(e.key === 'Enter') applyOutputSize(); });
+
+/* ==================== TIMELINE FRAME PICKER ==================== */
+// The Frame slider sets manualTime — used when Animate is OFF as the
+// fixed snapshot time. When Animate is ON, the slider acts as a time
+// offset added to live playback so designers can shift the loop start.
+qs('timeline').addEventListener('input', function(){
+  manualTime = parseFloat(this.value);
+  qs('v_tl').textContent = manualTime.toFixed(2) + 's';
+  if(depthRaw) renderPasses();
+});
+animateEl.addEventListener('change', () => {
+  qs('animDot').classList.toggle('paused', !animateEl.checked);
+  qs('animStatus').textContent = animateEl.checked ? 'Animating' : 'Static';
+  qs('exportMp4').disabled = !animateEl.checked || !depthRaw;
+  if(!animateEl.checked) renderPasses();
+});
+
+function tick(){
+  if(animateEl.checked && depthRaw) renderPasses();
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+/* ==================== EXPORT: PNG / JPG ==================== */
+function exportImage(format){
+  if(!depthRaw) return;
+  // Single-frame export: pause the video so the user grabs exactly what they see
+  if(videoMode && videoEl && !videoEl.paused){
+    try { videoEl.pause(); } catch(_){}
+    const b = qs('trimPlayPause'); if(b) b.textContent = '▶';
+  }
+  renderPasses(); // ensure latest frame is in canvas
+  const mime = format === 'png' ? 'image/png' : 'image/jpeg';
+  const ext = format === 'png' ? 'png' : 'jpg';
+  const quality = format === 'png' ? undefined : 0.95;
+  const url = outCv.toDataURL(mime, quality);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `massive-pattern-${selectedPattern.toLowerCase()}-${outCv.width}x${outCv.height}.${ext}`;
+  a.click();
+}
+qs('exportPng').addEventListener('click', () => exportImage('png'));
+qs('exportJpg').addEventListener('click', () => exportImage('jpg'));
+
+/* ==================== EXPORT: MP4 ==================== */
+function detectVideoFormat(){
+  const codecs = [
+    { mime:'video/mp4;codecs=avc1,mp4a.40.2', ext:'mp4', label:'MP4 H.264' },
+    { mime:'video/mp4;codecs=avc1',            ext:'mp4', label:'MP4 H.264' },
+    { mime:'video/mp4',                         ext:'mp4', label:'MP4' },
+    { mime:'video/webm;codecs=vp9',             ext:'webm', label:'WebM VP9' },
+    { mime:'video/webm;codecs=vp8',             ext:'webm', label:'WebM VP8' },
+    { mime:'video/webm',                         ext:'webm', label:'WebM' },
+  ];
+  return codecs.find(c => { try { return MediaRecorder.isTypeSupported(c.mime); } catch(e){ return false; } })
+    || { mime:'video/webm', ext:'webm', label:'WebM' };
+}
+
+let mediaRecorder = null, recTimer = null, recInterval = null;
+let videoMp4Active = false;
+
+// Scale bitrate to canvas resolution (8 Mbps at 1080p baseline)
+function _bitrateFor(w, h){
+  const base = 8_000_000, refPx = 1920 * 1080;
+  return Math.min(60_000_000, Math.max(4_000_000, Math.round(base * (w * h) / refPx)));
+}
+
+// ---- WebCodecs offline MP4 export (preferred) ----
+// Decoupled from real-time playback: paused seek per source frame, depth + render,
+// then encode via VideoEncoder + mp4-muxer. Output fps matches source exactly even
+// if our pipeline runs slower than realtime.
+async function _detectSourceFps(){
+  // 1. Chrome / Edge: VideoPlaybackQuality gives totalVideoFrames after a brief play
+  try {
+    const q = videoEl.getVideoPlaybackQuality?.();
+    if(q && q.totalVideoFrames > 4 && videoEl.currentTime > 0){
+      const fps = q.totalVideoFrames / videoEl.currentTime;
+      if(isFinite(fps) && fps > 1) return Math.round(fps);
+    }
+  } catch(_){}
+  // 2. Probe via rVFC over ~0.4s of playback
+  if(typeof videoEl.requestVideoFrameCallback === 'function'){
+    const wasPaused = videoEl.paused;
+    const samples = [];
+    let lastMedia = null;
+    await new Promise(res => {
+      const start = performance.now();
+      const cb = (_now, meta) => {
+        if(lastMedia != null) samples.push(meta.mediaTime - lastMedia);
+        lastMedia = meta.mediaTime;
+        if(performance.now() - start > 400 || samples.length >= 12) return res();
+        videoEl.requestVideoFrameCallback(cb);
+      };
+      videoEl.play().then(() => videoEl.requestVideoFrameCallback(cb)).catch(()=>res());
+    });
+    if(wasPaused) try { videoEl.pause(); } catch(_){}
+    if(samples.length){
+      samples.sort((a,b)=>a-b);
+      const med = samples[Math.floor(samples.length/2)];
+      if(med > 0){ const fps = Math.round(1/med); if(fps > 1 && fps < 240) return fps; }
+    }
+  }
+  return 30;
+}
+async function _exportVideoMp4_WebCodecs(){
+  const nativeW = videoEl.videoWidth, nativeH = videoEl.videoHeight;
+  // Resize canvas
+  const prevPreset = qs('sizePreset').value;
+  const prevCW = qs('customW').value, prevCH = qs('customH').value;
+  qs('sizePreset').value = 'custom';
+  qs('customW').value = nativeW; qs('customH').value = nativeH;
+  applyOutputSize();
+  videoEl.pause();
+  const hadLoop = videoEl.loop; videoEl.loop = false;
+  // Detect fps
+  videoEl.currentTime = 0;
+  await new Promise(res => { const s = () => { videoEl.removeEventListener('seeked', s); res(); }; videoEl.addEventListener('seeked', s); });
+  const fps = await _detectSourceFps();
+  videoEl.pause();
+  videoEl.currentTime = 0;
+  await new Promise(res => { const s = () => { videoEl.removeEventListener('seeked', s); res(); }; videoEl.addEventListener('seeked', s); });
+  const duration = videoEl.duration;
+  const totalFrames = Math.max(1, Math.floor(duration * fps));
+  // Load mp4-muxer from CDN
+  const muxModulePromise = import('https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.2/+esm');
+  let mux; try { mux = await muxModulePromise; } catch(e){ throw new Error('Could not load mp4-muxer module: ' + e); }
+  const { Muxer, ArrayBufferTarget } = mux;
+  // Pick a supported codec string for the resolution
+  const codecCandidates = ['avc1.640033','avc1.640032','avc1.640028','avc1.4D0028','avc1.42E028','avc1.42E01E'];
+  let codec = null;
+  for(const c of codecCandidates){
+    try {
+      const r = await VideoEncoder.isConfigSupported({ codec: c, width: nativeW, height: nativeH, bitrate: _bitrateFor(nativeW, nativeH), framerate: fps });
+      if(r && r.supported){ codec = c; break; }
+    } catch(_){}
+  }
+  if(!codec) throw new Error('No supported H.264 config for this resolution');
+  const muxer = new Muxer({
+    target: new ArrayBufferTarget(),
+    video: { codec: 'avc', width: nativeW, height: nativeH, frameRate: fps },
+    fastStart: 'in-memory',
+  });
+  const encoder = new VideoEncoder({
+    output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+    error: e => { console.error('VideoEncoder error:', e); throw e; },
+  });
+  encoder.configure({
+    codec, width: nativeW, height: nativeH,
+    bitrate: _bitrateFor(nativeW, nativeH),
+    framerate: fps,
+    latencyMode: 'quality',
+  });
+  if(!videoFrameCanvas){
+    videoFrameCanvas = document.createElement('canvas');
+    videoFrameCtx = videoFrameCanvas.getContext('2d', { willReadFrequently: true });
+  }
+  qs('recStatus').style.display = 'block';
+  qs('recStatus').firstChild && (qs('recStatus').firstChild.textContent = `Encoding ${nativeW}×${nativeH} @ ${fps}fps · ${totalFrames} frames`);
+  qs('exportMp4').textContent = 'STOP';
+  let cancelled = false;
+  qs('exportMp4').onclick_cancel = () => { cancelled = true; };
+  // Replace click handler temporarily so STOP cancels
+  const origClick = qs('exportMp4').onclick;
+  const stopBtn = qs('exportMp4');
+  const stopHandler = (e) => { e.preventDefault(); cancelled = true; };
+  stopBtn.addEventListener('click', stopHandler, { once: true });
+  const microsPerFrame = 1e6 / fps;
+  const keyEvery = Math.max(12, fps * 2);
+  for(let i = 0; i < totalFrames && !cancelled; i++){
+    const t = i / fps;
+    // Seek to this exact time, paused
+    if(Math.abs(videoEl.currentTime - t) > 1/(fps*2)){
+      await new Promise(res => {
+        const s = () => { videoEl.removeEventListener('seeked', s); res(); };
+        videoEl.addEventListener('seeked', s);
+        try { videoEl.currentTime = t; } catch(_){ res(); }
+      });
+    }
+    // Wait one rVFC tick so the new frame is fully decoded
+    if(typeof videoEl.requestVideoFrameCallback === 'function'){
+      await new Promise(r => videoEl.requestVideoFrameCallback(() => r()));
+    }
+    // Depth extract
+    const dw = videoEl.videoWidth, dh = videoEl.videoHeight;
+    const maxDim = 320;
+    const sc = Math.min(1, maxDim / Math.max(dw, dh));
+    const w = Math.max(1, Math.floor(dw * sc)), h = Math.max(1, Math.floor(dh * sc));
+    if(videoFrameCanvas.width !== w) videoFrameCanvas.width = w;
+    if(videoFrameCanvas.height !== h) videoFrameCanvas.height = h;
+    videoFrameCtx.drawImage(videoEl, 0, 0, w, h);
+    const img = videoFrameCtx.getImageData(0, 0, w, h);
+    const gray = _cheatDepthFromFrame(img.data, w, h);
+    depthRaw = gray;
+    storeOriginalDepth(gray, w, h);
+    uploadDepthCovering(gray, w, h);
+    renderPasses();
+    // Encode this frame
+    const vf = new VideoFrame(outCv, { timestamp: Math.round(i * microsPerFrame), duration: Math.round(microsPerFrame) });
+    encoder.encode(vf, { keyFrame: (i % keyEvery) === 0 });
+    vf.close();
+    if((i & 3) === 0){
+      const pct = ((i+1) / totalFrames) * 100;
+      if(qs('recFill')) qs('recFill').style.width = Math.min(100, pct) + '%';
+      qs('recStatus').firstChild && (qs('recStatus').firstChild.textContent = `Encoding ${nativeW}×${nativeH} @ ${fps}fps · frame ${i+1}/${totalFrames}`);
+      // Yield so encoder queue drains and UI updates
+      if(encoder.encodeQueueSize > 8) await new Promise(r => setTimeout(r, 0));
+    }
+  }
+  await encoder.flush();
+  muxer.finalize();
+  // Restore STOP click handler
+  stopBtn.removeEventListener('click', stopHandler);
+  if(!cancelled){
+    const blob = new Blob([muxer.target.buffer], { type: 'video/mp4' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `massive-pattern-${selectedPattern.toLowerCase()}-${nativeW}x${nativeH}-${fps}fps.mp4`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+  // Restore canvas + state
+  qs('sizePreset').value = prevPreset;
+  qs('customW').value = prevCW; qs('customH').value = prevCH;
+  applyOutputSize();
+  videoEl.loop = hadLoop;
+  qs('recStatus').style.display = 'none';
+  qs('exportMp4').textContent = 'MP4';
+  videoMp4Active = false;
+  if(videoMode) startVideoDepthLoop();
+}
+
+// Frame-accurate video MP4 export — full video, native resolution, native fps, in order
+async function _exportVideoMp4(){
+  // Prefer WebCodecs — offline encode at exact source fps, decoupled from realtime
+  if(typeof window.VideoEncoder !== 'undefined' && typeof window.VideoFrame !== 'undefined'){
+    videoMp4Active = true;
+    stopVideoDepthLoop();
+    try {
+      return await _exportVideoMp4_WebCodecs();
+    } catch(e){
+      console.warn('WebCodecs export failed, falling back to MediaRecorder:', e);
+      videoMp4Active = false;
+      // Fall through to MediaRecorder path below
+    }
+  }
+  return await _exportVideoMp4_MediaRecorder();
+}
+async function _exportVideoMp4_MediaRecorder(){
+  if(!videoEl || !isFinite(videoEl.duration)) return;
+  const startT = 0;
+  const endT   = videoEl.duration;
+  const fullLen = Math.max(0.1, endT - startT);
+  const nativeW = videoEl.videoWidth, nativeH = videoEl.videoHeight;
+  videoMp4Active = true;
+  // Pause the rAF-driven depth loop — we drive depth ourselves per source frame
+  stopVideoDepthLoop();
+  // Snapshot current size and resize canvas to the source's native resolution
+  const prevPreset = qs('sizePreset').value;
+  const prevCW = qs('customW').value, prevCH = qs('customH').value;
+  qs('sizePreset').value = 'custom';
+  qs('customW').value = nativeW;
+  qs('customH').value = nativeH;
+  applyOutputSize();
+  // Disable native looping so playback runs once, start → end, and 'ended' fires
+  const hadLoop = videoEl.loop;
+  videoEl.loop = false;
+  // Seek to 0, paused, before we attach the recorder
+  videoEl.pause();
+  await new Promise(res => {
+    if(Math.abs(videoEl.currentTime - startT) < 0.01) return res();
+    const onSeek = () => { videoEl.removeEventListener('seeked', onSeek); res(); };
+    videoEl.addEventListener('seeked', onSeek);
+    try { videoEl.currentTime = startT; } catch(_){ res(); }
+  });
+  const fmt = detectVideoFormat();
+  const stream = outCv.captureStream(); // no fps arg → tracks canvas paints, matches source fps
+  const chunks = [];
+  try { mediaRecorder = new MediaRecorder(stream, { mimeType: fmt.mime, videoBitsPerSecond: _bitrateFor(nativeW, nativeH) }); }
+  catch(_){ mediaRecorder = new MediaRecorder(stream); }
+  mediaRecorder.ondataavailable = e => { if(e.data.size > 0) chunks.push(e.data); };
+  function finishExport(){
+    if(!mediaRecorder) return;
+    if(mediaRecorder.state !== 'inactive'){ try { mediaRecorder.stop(); } catch(_){} return; }
+    // already inactive — onstop will run
+  }
+  mediaRecorder.onstop = () => {
+    const blob = new Blob(chunks, { type: mediaRecorder.mimeType || fmt.mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `massive-pattern-${selectedPattern.toLowerCase()}-${nativeW}x${nativeH}.${fmt.ext}`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    if(recInterval){ clearInterval(recInterval); recInterval = null; }
+    if(recTimer){ clearTimeout(recTimer); recTimer = null; }
+    mediaRecorder = null;
+    qs('recStatus').style.display = 'none';
+    qs('exportMp4').textContent = 'MP4';
+    // Restore previous canvas size + loop attr, restart depth loop
+    qs('sizePreset').value = prevPreset;
+    qs('customW').value = prevCW;
+    qs('customH').value = prevCH;
+    applyOutputSize();
+    videoEl.loop = hadLoop;
+    videoMp4Active = false;
+    if(videoMode) startVideoDepthLoop();
+  };
+  // 'ended' is the canonical stop signal once loop=false
+  const onEnded = () => { videoEl.removeEventListener('ended', onEnded); finishExport(); };
+  videoEl.addEventListener('ended', onEnded);
+  qs('recStatus').style.display = 'block';
+  qs('recStatus').firstChild && (qs('recStatus').firstChild.textContent = `Recording ${nativeW}×${nativeH} ${fmt.label} · ${fullLen.toFixed(1)}s`);
+  qs('exportMp4').textContent = 'STOP';
+  if(!videoFrameCanvas){
+    videoFrameCanvas = document.createElement('canvas');
+    videoFrameCtx = videoFrameCanvas.getContext('2d', { willReadFrequently: true });
+  }
+  // Per-frame: extract source frame → depth → render
+  const drawFrame = () => {
+    const dw = videoEl.videoWidth, dh = videoEl.videoHeight;
+    const maxDim = 320;
+    const scale = Math.min(1, maxDim / Math.max(dw, dh));
+    const w = Math.max(1, Math.floor(dw * scale));
+    const h = Math.max(1, Math.floor(dh * scale));
+    if(videoFrameCanvas.width !== w) videoFrameCanvas.width = w;
+    if(videoFrameCanvas.height !== h) videoFrameCanvas.height = h;
+    videoFrameCtx.drawImage(videoEl, 0, 0, w, h);
+    const img = videoFrameCtx.getImageData(0, 0, w, h);
+    const gray = _cheatDepthFromFrame(img.data, w, h);
+    depthRaw = gray;
+    storeOriginalDepth(gray, w, h);
+    uploadDepthCovering(gray, w, h);
+    renderPasses();
+    if(qs('recFill')) qs('recFill').style.width = Math.min(100, (videoEl.currentTime / fullLen) * 100) + '%';
+  };
+  mediaRecorder.start(250);
+  try { await videoEl.play(); } catch(_){}
+  if(typeof videoEl.requestVideoFrameCallback === 'function'){
+    const onFrame = () => {
+      if(!videoMp4Active || !mediaRecorder) return;
+      drawFrame();
+      if(videoEl.ended || videoEl.currentTime >= endT - 0.001){ finishExport(); return; }
+      videoEl.requestVideoFrameCallback(onFrame);
+    };
+    videoEl.requestVideoFrameCallback(onFrame);
+  } else {
+    // Fallback for Safari without rVFC: drive via rAF until 'ended'
+    const tick = () => {
+      if(!videoMp4Active || !mediaRecorder) return;
+      drawFrame();
+      if(videoEl.ended){ finishExport(); return; }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+  // Safety net — hard cap at 2× expected wall-clock + 10s grace
+  recTimer = setTimeout(() => { if(mediaRecorder && mediaRecorder.state !== 'inactive') finishExport(); }, fullLen * 2000 + 10000);
+}
+
+qs('exportMp4').addEventListener('click', () => {
+  if(!depthRaw || !animateEl.checked) return;
+  if(mediaRecorder){ mediaRecorder.stop(); if(videoMode) { try { videoEl.pause(); } catch(_){} } return; }
+  if(videoMode) return _exportVideoMp4();
+  // Static-depth path: canvas animation, 8s @ 60fps, scaled bitrate
+  const duration = 8;
+  const fmt = detectVideoFormat();
+  const stream = outCv.captureStream(60);
+  const chunks = [];
+  try {
+    mediaRecorder = new MediaRecorder(stream, { mimeType: fmt.mime, videoBitsPerSecond: _bitrateFor(outCv.width, outCv.height) });
+  } catch(e) { mediaRecorder = new MediaRecorder(stream); }
+  mediaRecorder.ondataavailable = e => { if(e.data.size > 0) chunks.push(e.data); };
+  mediaRecorder.onstop = () => {
+    const blob = new Blob(chunks, { type: mediaRecorder.mimeType || fmt.mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `massive-pattern-${selectedPattern.toLowerCase()}-${outCv.width}x${outCv.height}.${fmt.ext}`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    if(recTimer){ clearTimeout(recTimer); recTimer = null; }
+    if(recInterval){ clearInterval(recInterval); recInterval = null; }
+    mediaRecorder = null;
+    qs('recStatus').style.display = 'none';
+    qs('exportMp4').textContent = 'MP4';
+  };
+  mediaRecorder.start(250);
+  qs('recStatus').style.display = 'block';
+  qs('recStatus').firstChild && (qs('recStatus').firstChild.textContent = `Recording ${fmt.label}…`);
+  qs('exportMp4').textContent = 'STOP';
+  const t0 = Date.now();
+  recInterval = setInterval(() => {
+    const el = (Date.now() - t0) / 1000;
+    const pct = Math.min(el / duration * 100, 100);
+    qs('recFill').style.width = pct + '%';
+  }, 100);
+  recTimer = setTimeout(() => {
+    if(mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+  }, duration * 1000);
+});
+
+/* ==================== BOLD DEPTH (procedural) — fully random each call ==================== */
+// Picks one of 5 organic depth recipes at random per invocation: blobs,
+// liquid_marble, splatter, ink_bloom, flow_field. Truly fresh each click.
+function _mulberry(a){ return () => { a=(a+0x6D2B79F5)|0; let t=a; t=Math.imul(t^(t>>>15),t|1); t^=t+Math.imul(t^(t>>>7),t|61); return ((t^(t>>>14))>>>0)/4294967296; }; }
+function _vn(x,y){
+  const ix = Math.floor(x), iy = Math.floor(y), fx = x-ix, fy = y-iy;
+  const h = (a,b) => ((Math.imul((a|0)*73856093 ^ (b|0)*19349663, 83492791))>>>0)/4294967295;
+  const sx = fx*fx*(3-2*fx), sy = fy*fy*(3-2*fy);
+  return (h(ix,iy)*(1-sx) + h(ix+1,iy)*sx)*(1-sy) + (h(ix,iy+1)*(1-sx) + h(ix+1,iy+1)*sx)*sy;
+}
+function _fbm(x, y, oct=4){ let s=0, a=0.5, f=1; for(let i=0;i<oct;i++){ s += _vn(x*f, y*f)*a; a*=0.5; f*=2; } return s; }
+function _sharpen(v, k=2.0){ v = Math.max(0, Math.min(1, v)); return Math.pow(v, 1/k) / (Math.pow(v, 1/k) + Math.pow(1-v, 1/k)); }
+function _normalize(raw){
+  let mn=Infinity, mx=-Infinity;
+  for(let i=0;i<raw.length;i++){ if(raw[i]<mn) mn=raw[i]; if(raw[i]>mx) mx=raw[i]; }
+  const range = (mx-mn) || 1;
+  const g = new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++) g[i] = Math.max(0, Math.min(255, ((raw[i]-mn)/range)*255|0));
+  return g;
+}
+function _depthBlobs(rnd, w, h){
+  const raw = new Float32Array(w*h);
+  const N = 4 + Math.floor(rnd()*4);
+  const blobs = [];
+  for(let i=0;i<N;i++) blobs.push({ cx:rnd()*1.4-0.2, cy:rnd()*1.4-0.2, r2:Math.pow(0.32+rnd()*0.55,2), amp:(rnd()<0.5?-1:1)*(0.85+rnd()*1.1) });
+  const gx = (rnd()-0.5)*2.5, gy = (rnd()-0.5)*2.5;
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    const u=x/w, v=y/h; let s = 0.5 + u*gx + v*gy;
+    for(const b of blobs){ const dx=u-b.cx, dy=v-b.cy; s += b.amp*Math.exp(-(dx*dx+dy*dy)/b.r2); }
+    raw[y*w+x] = s;
+  }
+  return _normalize(raw);
+}
+function _depthLiquid(rnd, w, h){
+  const sX=rnd()*1000, sY=rnd()*1000, sc=1.8+rnd()*1.4, wp=1.5+rnd()*1.5;
+  const raw = new Float32Array(w*h);
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    const u=x/w*sc+sX, v=y/h*sc+sY;
+    const qx = _fbm(u, v, 4), qy = _fbm(u+5.2, v+1.3, 4);
+    raw[y*w+x] = _sharpen(_fbm(u+qx*wp, v+qy*wp, 5), 1.6);
+  }
+  return _normalize(raw);
+}
+function _depthSplatter(rnd, w, h){
+  const N = 8 + Math.floor(rnd()*8);
+  const bl = [];
+  for(let i=0;i<N;i++) bl.push({ cx:rnd(), cy:rnd(), r2:Math.pow(0.05+rnd()*0.18,2), amp:(rnd()<0.5?-1:1)*(0.6+rnd()*0.9), ang:rnd()*Math.PI, sq:0.5+rnd()*1.0 });
+  const sX=rnd()*100, sY=rnd()*100;
+  const raw = new Float32Array(w*h);
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    const u=x/w, v=y/h; let s = 0.5;
+    for(const b of bl){
+      const du=u-b.cx, dv=v-b.cy;
+      const ru =  du*Math.cos(b.ang) + dv*Math.sin(b.ang);
+      const rv = (-du*Math.sin(b.ang) + dv*Math.cos(b.ang)) * b.sq;
+      const wb = _fbm(u*3.5+sX, v*3.5+sY, 3) * 0.4;
+      s += b.amp * Math.exp(-(ru*ru + rv*rv) / b.r2 * (1+wb));
+    }
+    raw[y*w+x] = _sharpen(s, 1.4);
+  }
+  return _normalize(raw);
+}
+function _depthInkBloom(rnd, w, h){
+  const sX=rnd()*1000, sY=rnd()*1000, sc=2.4+rnd()*1.5;
+  const dr = [];
+  const N = 3 + Math.floor(rnd()*3);
+  for(let i=0;i<N;i++) dr.push({ cx:0.15+rnd()*0.7, cy:0.15+rnd()*0.7, r:0.18+rnd()*0.2, amp:0.6+rnd()*0.6, ang:rnd()*Math.PI, sq:0.6+rnd()*0.8 });
+  const raw = new Float32Array(w*h);
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    const u=x/w, v=y/h;
+    const nx = _fbm(u*sc+sX, v*sc+sY, 4)*0.18;
+    const ny = _fbm(u*sc+sX+7.1, v*sc+sY+3.7, 4)*0.18;
+    let s = 0;
+    for(const d of dr){
+      const du = u+nx-d.cx, dv = v+ny-d.cy;
+      const ru =  du*Math.cos(d.ang) + dv*Math.sin(d.ang);
+      const rv = (-du*Math.sin(d.ang) + dv*Math.cos(d.ang))*d.sq;
+      const dist = Math.sqrt(ru*ru + rv*rv);
+      s += d.amp * Math.exp(-Math.pow(dist/d.r, 1.7));
+    }
+    s += _fbm(u*4+sX, v*4+sY, 3)*0.15;
+    raw[y*w+x] = _sharpen(s, 1.8);
+  }
+  return _normalize(raw);
+}
+function _depthCloud(rnd, w, h){
+  const sX=rnd()*1000, sY=rnd()*1000, sc=1.6+rnd()*1.6;
+  const raw = new Float32Array(w*h);
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    const u=x/w*sc+sX, v=y/h*sc+sY;
+    const rg = 1 - Math.abs(2*_fbm(u, v, 5) - 1);
+    const f = _fbm(u*1.7+12.4, v*1.7+8.1, 4);
+    raw[y*w+x] = _sharpen(rg*0.7 + f*0.5, 1.5);
+  }
+  return _normalize(raw);
+}
+
+// Random pick + truly random RNG seed each call
+function generateBoldDepth(){
+  const fns = [_depthBlobs, _depthLiquid, _depthSplatter, _depthInkBloom, _depthCloud];
+  const rnd = _mulberry((Math.random()*0xffffffff) >>> 0);
+  const fn  = fns[Math.floor(rnd() * fns.length)];
+  const w = 512, h = 512;
+  return { gray: fn(rnd, w, h), w, h, kind: fn.name.replace('_depth','').toLowerCase() };
+}
+/* ==================== GRADIENT DEPTH (simple B/W gradients) ==================== */
+// Pure linear or radial gradients — useful as a clean depth source for patterns.
+// Adapts to the currently-selected output aspect.
+function _gradientDims(){
+  const preset = qs('sizePreset')?.value || 'native';
+  if(preset === 'native') return { w: 512, h: 512 };
+  const [pw, ph] = preset.split('x').map(Number);
+  const aspect = pw / ph;
+  if(aspect >= 1) return { w: 768, h: Math.round(768 / aspect) };
+  return { h: 768, w: Math.round(768 * aspect) };
+}
+function generateGradientDepth(kind, angleDeg){
+  const { w, h } = _gradientDims();
+  const gray = new Uint8Array(w*h);
+  const ang = (angleDeg || 0) * Math.PI / 180;
+  const cx = w * 0.5, cy = h * 0.5;
+  const maxR = Math.sqrt(cx*cx + cy*cy);
+  if(kind === 'linear'){
+    // Project (x,y) onto angle vector
+    const dx = Math.cos(ang), dy = Math.sin(ang);
+    // Range of projection across the image
+    const corners = [[0,0],[w,0],[0,h],[w,h]];
+    let pmin = Infinity, pmax = -Infinity;
+    for(const [px,py] of corners){ const p = px*dx + py*dy; if(p<pmin) pmin=p; if(p>pmax) pmax=p; }
+    const range = (pmax-pmin) || 1;
+    for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+      const t = ((x*dx + y*dy) - pmin) / range;
+      gray[y*w+x] = Math.max(0, Math.min(255, (t*255)|0));
+    }
+  } else if(kind === 'radial'){
+    for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+      const dx = x - cx, dy = y - cy;
+      const r = Math.sqrt(dx*dx + dy*dy) / maxR;
+      gray[y*w+x] = Math.max(0, Math.min(255, ((1 - r) * 255) | 0));
+    }
+  } else if(kind === 'radial_inverse'){
+    for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+      const dx = x - cx, dy = y - cy;
+      const r = Math.sqrt(dx*dx + dy*dy) / maxR;
+      gray[y*w+x] = Math.max(0, Math.min(255, (r * 255) | 0));
+    }
+  }
+  return { gray, w, h };
+}
+function loadGradientDepth(kind, angleDeg){
+  const d = generateGradientDepth(kind, angleDeg);
+  depthRaw = d.gray;
+  storeOriginalDepth(d.gray, d.w, d.h);
+  uploadDepthCovering(d.gray, d.w, d.h);
+  const label = kind === 'linear' ? `Linear gradient (${angleDeg||0}°)` : (kind === 'radial' ? 'Radial gradient' : 'Radial inverse');
+  setStatus(`${label} · ${d.w}×${d.h}`, 'ok');
+  if(!animateEl.checked) renderPasses();
+}
+// Unified procedural-depth dropdown — fires either Bold blobs or one of the gradients
+function _triggerBoldDepth(){
+  const d = generateBoldDepth();
+  depthRaw = d.gray;
+  storeOriginalDepth(d.gray, d.w, d.h);
+  uploadDepthCovering(d.gray, d.w, d.h);
+  setStatus(`Bold depth · ${d.kind} · ${d.w}×${d.h} · click again for a different one`, 'ok');
+  if(!animateEl.checked) renderPasses();
+}
+qs('procSelect')?.addEventListener('change', function(){
+  switch(this.value){
+    case 'bold':       _triggerBoldDepth(); break;
+    case 'linear-v':   loadGradientDepth('linear', 90); break;
+    case 'linear-h':   loadGradientDepth('linear', 0);  break;
+    case 'linear-d':   loadGradientDepth('linear', 45); break;
+    case 'radial':     loadGradientDepth('radial');     break;
+    case 'radial-inv': loadGradientDepth('radial_inverse'); break;
+  }
+  this.value = '';
+});
+
+/* ==================== STAGE METADATA LABEL ==================== */
+// The canvas itself now represents the artboard (no overlay frame needed).
+// We just label its dimensions above the canvas.
+function updatePatternFrame(w, h){
+  if(!w || !h){ w = outCv.width || 512; h = outCv.height || 512; }
+  const meta = qs('stageMeta');
+  if(meta) meta.textContent = `${w} × ${h}`;
+  // Set the display size of the canvas so it preserves aspect ratio inside
+  // the stage but never overflows the available area.
+  const stage = outCv?.parentElement;
+  if(!stage) return;
+  const padX = 48, padY = 60; // breathing room around the canvas
+  const availW = Math.max(80, stage.clientWidth  - padX);
+  const availH = Math.max(80, stage.clientHeight - padY);
+  const aspect = w / h;
+  let dw, dh;
+  if(availW / availH > aspect){ dh = availH; dw = dh * aspect; }
+  else                         { dw = availW; dh = dw / aspect; }
+  outCv.style.width  = dw + 'px';
+  outCv.style.height = dh + 'px';
+}
+window.addEventListener('resize', () => updatePatternFrame());
+requestAnimationFrame(() => updatePatternFrame());
+
+setStatus('Upload an image or click AI Generate', '');
+
+// Expose internals for batch-tooling / automation use
+window.__mm = {
+  uploadDepth, renderPasses,
+  get depthRaw(){return depthRaw}, set depthRaw(v){depthRaw=v},
+  PALETTES,
+  setPattern(p){ selectedPattern = p; [...qs('patternGrid').children].forEach(b => b.classList.toggle('active', b.dataset.pattern === p)); },
+  // Inject a named MM palette and activate it (no permanent entry — uses temporary key)
+  setMMPalette(colors, stops){
+    const key = 'TEMP_MM';
+    PALETTES[key] = { name: 'MM', colors: colors.slice(), userStops: stops.slice() };
+    selectedPaletteKey = key;
+    // Force user stops mode so our stops apply
+    qs('stopsMode').value = 'user';
+  },
+};
+</script>
+</body>
+</html>
